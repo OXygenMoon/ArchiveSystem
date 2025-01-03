@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>德育管理</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        
+        .container {
+            margin-top: 20px;
+            max-width: 1400px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        table.dataTable {
+            width: 100% !important;
+            /* 表格宽度 100% */
+            table-layout: auto;
+            /* 自动计算列宽 */
+        }
+        
+        table.dataTable td {
+            white-space: normal;
+            /* 允许单元格内容换行 */
+            word-break: break-word;
+            /* 强制单词断行 */
+        }
+        
+        table.dataTable th {
+            white-space: nowrap;
+            /* 标题栏文字不换行 */
+        }
+        /* 高亮选中的行 */
+        
+        tr.selected {
+            background-color: #d1ecf1 !important;
+        }
+        
+        table tr td:nth-child(5) {
+            width: 160px;
+        }
+        
+        table tr td:nth-child(7) {
+            width: 160px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 显示用户名和权限等级 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <p class="mb-0">
+                    {{ username }}，你好！ （{% if user_role == 'super_admin' %} 超级管理员 {% elif user_role == 'department_admin' %} 系部管理员 {% else %} 班主任 {% endif %} ）
+                </p>
+            </div>
+            <a href="/logout" class="btn btn-secondary btn-sm">退出登录</a>
+        </div>
+
+        <!-- 主标题，动态显示部门名称 -->
+        <h1 class="mb-4">学生德育管理</h1>
+
+        <!-- 错误消息展示 -->
+        {% if error_message %}
+        <div class="alert alert-danger">{{ error_message }}</div>
+        {% endif %}
+
+        <!-- 只有系部管理员和超级管理员才能看到提交表单 -->
+        {% if user_role in ['department_admin','super_admin'] %}
+        <div id="addForm">
+            <!-- 学生姓名 -->
+            <div class="form-group">
+                <label for="student_name">学生姓名:</label>
+                <input type="text" class="form-control" id="student_name" name="student_name" required>
+            </div>
+
+            <!-- 学生性别 -->
+            <div class="form-group">
+                <label for="student_sex">学生性别:</label>
+                <select class="form-control" id="student_sex" name="student_sex" required>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+            </div>
+
+            <!-- 班级 -->
+            <div class="form-group">
+                <label for="student_class">班级:</label>
+                <input type="text" class="form-control" id="student_class" name="student_class" required>
+            </div>
+
+            <!-- 系部：根据角色动态处理 -->
+            <div class="form-group">
+                <label for="department">系部:</label> {% if user_role == 'super_admin' %}
+                <!-- 超级管理员可选全部系部 -->
+                <select class="form-control" id="department" name="department" required>
+                            {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        </select> {% else %}
+                <!-- 系部管理员只显示自己所在系部为只读状态 -->
+                <input type="text" class="form-control" id="department" name="department" value="{{ user_department }}" readonly> {% endif %}
+            </div>
+
+            <!-- 处分原因 -->
+            <div class="form-group">
+                <label for="reason">处分原因:</label>
+                <input type="text" class="form-control" id="reason" name="reason" required>
+            </div>
+
+            <!-- 处分等级 -->
+            <div class="form-group">
+                <label for="level">处分等级:</label>
+                <select class="form-control" id="level" name="level" required>
+                        <option value="警告">警告</option>
+                        <option value="严重警告">严重警告</option>
+                        <option value="记过">记过</option>
+                        <option value="留校察看">留校察看</option>
+                    </select>
+            </div>
+
+            <!-- 提交按钮 -->
+            <button type="button" id="submitBtn" class="btn btn-primary">提交</button>
+        </div>
+        {% endif %}
+
+        <!-- 成功生成文档的提示 -->
+        {% if file_name %}
+        <div class="mt-3 alert alert-success">
+            成功生成 Word 文档，点击 <a href="/download/{{file_name}}" class="alert-link">下载</a>
+        </div>
+        {% endif %}
+
+        <!-- 数据表格展示 -->
+        {% if data is not none %} {% if not data.empty %}
+        <h2 class="mt-4">现有数据：</h2>
+        <table id="excelTable" class="table table-striped">
+            <thead>
+                <tr>
+                    <!-- 只有系部管理员和超级管理员才有选择撤销 -->
+                    {% if user_role in ['department_admin','super_admin'] %} {% endif %} {% for column in columns %}
+                    <th>{{ column }}</th>
+                    {% endfor %}
+                    <th>下载</th>
+                    <th>撤销</th>
+                    <th>删除</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                <tr>
+                    <!-- 循环显示数据行的每一列 -->
+                    {% for value in row %} {% if row.index(value) == 1 %}
+                    <!-- 假设姓名字段在第二列，索引为1 -->
+                    <td>{{ value[:1] ~ '*' ~ value[2:] }}</td>
+                    <!-- 只替换第二个字 -->
+                    {% else %}
+                    <td>{{ value }}</td>
+                    {% endif %} {% endfor %}
+
+                    <td>
+                        {# 假设要做“下载”功能时，你想用 row 中的某些字段拼接文档名， ID,姓名,班级,处分等级,日期,原因,撤销信息,系部 #} {% if row[1] != '' %}
+                        <button class="btn btn-sm btn-secondary downloadBtn" data-file-name="{{ row[4] }} {{ row[1] }} {{row[2]}} {{row[3]}}.docx">
+                            下载
+                        </button> {% endif %}
+                    </td>
+                    {% if user_role in ['department_admin','super_admin'] %}
+                    <!-- row[0] 假设就是 ID -->
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary selectRowBtn" data-record-id="{{ row[0] }}">
+                            撤销
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger deleteRowBtn" data-record-id="{{ row[0] }}">
+                            删除
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %} {% endif %}
+    </div>
+
+    <!-- JS 依赖 -->
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            var table = $('#excelTable').DataTable();
+
+            // 监听提交按钮
+            $('#submitBtn').click(function() {
+                var student_name = $('#student_name').val();
+                var student_sex = $('#student_sex').val();
+                var student_class = $('#student_class').val();
+                var department = $('#department').val();
+                var reason = $('#reason').val();
+                var level = $('#level').val();
+
+                $.ajax({
+                    url: '/index',
+                    method: 'POST',
+                    contentType: 'application/x-www-form-urlencoded',
+                    data: {
+                        student_name: student_name,
+                        student_sex: student_sex,
+                        student_class: student_class,
+                        department: department,
+                        reason: reason,
+                        level: level
+                    },
+                    success: function(response) {
+                        window.location.reload();
+                    },
+                    error: function(error) {
+                        console.log("Error adding data: ", error);
+                        alert("提交过程中出错，请稍后重试。");
+                    }
+                });
+            });
+
+            // 撤销按钮 - 用 ID 而不是行索引
+            $('#excelTable').on('click', '.selectRowBtn', function() {
+                var recordId = $(this).data('record-id');
+                if (!recordId) {
+                    alert("未能获取到ID，请检查数据。");
+                    return;
+                }
+
+                // 也可以给选中的行加个样式
+                $('#excelTable tbody tr').removeClass('selected');
+                $(this).closest('tr').addClass('selected');
+
+                $.ajax({
+                    url: '/revoke',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        record_id: recordId // 向后端发送 ID
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.message);
+                            window.location.reload();
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function(error) {
+                        console.log("Error revoking data: ", error);
+                        alert("撤销过程中出错，请稍后重试。");
+                    }
+                });
+            });
+
+            // 删除按钮
+            $('#excelTable').on('click', '.deleteRowBtn', function() {
+                var recordId = $(this).data('record-id');
+                if (!recordId) {
+                    alert("未能获取到ID，请检查数据。");
+                    return;
+                }
+                if (confirm('确认删除该记录吗？')) {
+                    // 也可以给选中的行加个样式
+                    $('#excelTable tbody tr').removeClass('selected');
+                    $(this).closest('tr').addClass('selected');
+
+                    $.ajax({
+                        url: '/delete',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            record_id: recordId
+                        }),
+                        success: function(response) {
+                            if (response.success) {
+                                alert(response.message);
+                                window.location.reload();
+                            } else {
+                                alert(response.message);
+                            }
+                        },
+                        error: function(error) {
+                            console.log("Error deleting data: ", error);
+                            alert("删除过程中出错，请稍后重试。");
+                        }
+                    });
+                }
+
+            });
+
+            // 下载按钮
+            $('#excelTable').on('click', '.downloadBtn', function() {
+                var fileName = $(this).data('file-name');
+                window.location.href = '/download/' + fileName;
+            });
+        });
+    </script>
+</body>
+
+</html>

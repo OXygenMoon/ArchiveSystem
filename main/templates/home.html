@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>嘉善技师学院德育平台</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 400px;
+            padding: 30px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .btn-group {
+            margin-top: 20px;
+        }
+        
+        .btn {
+            margin: 0 10px;
+            width: 100px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>嘉善技师学院德育平台</h2>
+        <div class="btn-group">
+            {% if 'logged_in' not in session %}
+            <a href="/login" class="btn btn-primary">登录</a>
+            <!--<a href="/register" class="btn btn-secondary">注册</a> {% else %}-->
+            <a href="/index" class="btn btn-primary">进入主页</a> {% endif %}
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
