@@ -1,0 +1,198 @@
+{% extends "layout.html" %}
+
+{% block title %}添加违纪记录{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 grid place-items-center">
+    <h1 class="text-2xl font-bold mb-6 text-center">添加新违纪记录</h1>
+
+    {% include '_flashes.html' %} <!-- 包含 flash 消息显示模板 -->
+
+    <form method="POST" class="max-w-2xl w-full"> {# 添加 w-full 使其占满网格宽度 #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 姓名 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">姓名</span>
+                </label>
+                {# 添加 id 以便 JS 选择 #}
+                <input type="text" name="name" id="student-name" class="input input-bordered" required>
+            </div>
+
+            <!-- 系部 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">系部</span>
+                </label>
+                <select name="department" class="select select-bordered" required>
+                    <option value="">请选择系部</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if session.department == dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 班级 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">班级</span>
+                </label>
+                 {# 添加 id 以便 JS 选择 #}
+                <input type="text" name="class" id="student-class" class="input input-bordered" required>
+            </div>
+
+            <!-- 日期 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">违纪日期</span>
+                </label>
+                <input type="date" name="date" class="input input-bordered" required value="{{ today }}">
+            </div>
+
+            <!-- 等级 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">违纪等级</span>
+                </label>
+                <select name="level" class="select select-bordered" required>
+                    <option value="">请选择等级</option>
+                    {% for level in levels %}
+                    <option value="{{ level }}" {% if level == "警告" %}selected{% endif %}>{{ level }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 类型 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">违纪类型</span>
+                </label>
+                <select name="type" class="select select-bordered" required>
+                    <option value="">请选择类型</option>
+                    {% for weiji_type in weiji_types %}
+                    <option value="{{ weiji_type }}">{{ weiji_type }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+            <!-- 经手人
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">处理 by</span>
+                </label>
+                <input type="text" name="byteacher" class="input input-bordered" value="{{ session['username'] }}" readonly>
+            </div>
+        </div> -->
+
+        <!-- 原因 -->
+        <div class="form-control mt-4">
+            <label class="label">
+                <span class="label-text">违纪原因</span>
+            </label>
+            <textarea name="reason" class="textarea textarea-bordered h-32" required></textarea>
+        </div>
+
+        <div class="mt-6 flex justify-center gap-2">
+            <a href="{{ url_for('weiji_show') }}" class="btn bg-secondary">查看记录</a>
+            <button type="submit" class="btn btn-primary">提交记录</button>
+        </div>
+    </form>
+
+    <!-- 新增：用于显示过往记录的区域 -->
+    <div id="past-records-container" class="mt-8 max-w-2xl w-full bg-base-200 p-4 rounded-lg shadow">
+        <h3 class="text-lg font-semibold mb-2 text-center">过往记录查询</h3>
+        <div id="records-output" class="text-sm">
+            <!-- 记录将通过 JavaScript 动态加载到这里 -->
+            <p class="text-gray-500 text-center">请输入完整的姓名和班级以查询过往记录。</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{# 添加 JavaScript 块 #}
+{% block scripts %}
+{{ super() }} {# 如果 layout.html 有 scripts 块，这会包含它们 #}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const nameInput = document.getElementById('student-name');
+        const classInput = document.getElementById('student-class');
+        const recordsOutput = document.getElementById('records-output');
+        const recordsContainer = document.getElementById('past-records-container');
+
+        // 创建一个 debounce 函数防止过于频繁的请求 (可选但推荐)
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        const fetchRecords = async () => {
+            const name = nameInput.value.trim();
+            const className = classInput.value.trim();
+
+            // 只有当姓名和班级都输入时才查询
+            if (name && className) {
+                recordsOutput.innerHTML = '<p class="text-info text-center animate-pulse">正在查询...</p>'; // 显示加载状态
+
+                try {
+                    // 使用 url_for 生成后端 API 的 URL
+                    const url = new URL("{{ url_for('get_student_records') }}", window.location.origin);
+                    url.searchParams.append('name', name);
+                    url.searchParams.append('class_name', className); // 确保参数名与后端一致
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        // 显示后端返回的错误信息（如果有）
+                        recordsOutput.innerHTML = `<p class="text-error text-center">查询失败: ${data.message || data.error || response.statusText}</p>`;
+                        return;
+                    }
+
+                    if (data.records && data.records.length > 0) {
+                        let html = '<ul class="space-y-2">';
+                        data.records.forEach(record => {
+                            // 假设你的 CSV 列名是 '日期', '等级', '原因', '撤销信息'
+                            // 请根据实际 CSV 列名调整 record['列名']
+                            const revokeInfo = record['撤销信息'] ? `<span class="text-success ml-2">(已撤销: ${record['撤销信息']})</span>` : '<span class="text-warning ml-2">(未撤销)</span>';
+                            html += `
+                                <li class="border-b border-base-300 pb-1">
+                                    <strong>${record['日期']}</strong> - ${record['处分等级']} - ${record['原因']} - ${record['系部']} - ${record['经手人']} ${revokeInfo}
+                                </li>`;
+                        });
+                        html += '</ul>';
+                        recordsOutput.innerHTML = html;
+                    } else {
+                        recordsOutput.innerHTML = '<p class="text-success text-center">未查询到该学生的过往违纪记录。</p>';
+                    }
+
+                } catch (error) {
+                    console.error('查询记录时出错:', error);
+                    recordsOutput.innerHTML = '<p class="text-error text-center">查询过程中发生错误，请检查网络或联系管理员。</p>';
+                }
+            } else {
+                // 如果姓名或班级为空，显示提示信息
+                recordsOutput.innerHTML = '<p class="text-gray-500 text-center">请输入完整的姓名和班级以查询过往记录。</p>';
+            }
+        };
+
+        // 使用 debounce 包装 fetchRecords，延迟 500ms 执行
+        const debouncedFetchRecords = debounce(fetchRecords, 500);
+
+        // 监听两个输入框的 'input' 事件 (实时触发，配合 debounce)
+        // 或者使用 'blur' 事件 (失去焦点时触发)
+        nameInput.addEventListener('input', debouncedFetchRecords);
+        classInput.addEventListener('input', debouncedFetchRecords);
+
+        // 也可以在页面加载时检查一次（如果可能从其他地方带入值）
+        // fetchRecords();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "layout.html" %}
+
+{% block title %} 处分类型统计图 {% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4">处分类型统计 (2025.2 - 2025.7)</h2>
+
+    <!-- ECharts 图表容器 -->
+    <div id="barChartContainer" style="width: 100%; height: 500px;"></div>
+
+    <!-- 显示加载状态或错误信息 -->
+    <div id="chartStatus" class="text-center mt-3" style="display: none;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} <!-- 继承父模板可能有的脚本 -->
+
+<!-- 引入 ECharts 库 -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<!-- 或者，如果你本地下载了 ECharts，使用本地路径 -->
+<!-- <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script> -->
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const chartDom = document.getElementById('barChartContainer');
+        const statusDiv = document.getElementById('chartStatus');
+        let myChart = null; // ECharts 实例
+
+        // 显示状态信息
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = isError ? 'red' : 'grey';
+            if (isError && myChart) {
+                myChart.clear(); // 清除可能存在的旧图表
+            }
+        }
+
+        // 初始化 ECharts 图表
+        function initChart() {
+            if (myChart != null && myChart != "" && myChart != undefined) {
+                myChart.dispose(); // 销毁旧实例以防重复初始化
+            }
+            myChart = echarts.init(chartDom);
+            showStatus('正在加载图表数据...');
+
+            // --- 从后端获取数据 ---
+            fetch('/data_analysis_plot_data') // 请求我们创建的数据 API
+                .then(response => {
+                    if (!response.ok) {
+                        // 如果 HTTP 状态码不是 2xx，也认为是错误
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json(); // 解析 JSON 数据
+                })
+                .then(data => {
+                    statusDiv.style.display = 'none'; // 隐藏状态信息
+
+                    if (data.error) {
+                        console.error("后端返回错误:", data.error);
+                        showStatus(`加载失败: ${data.error}`, true);
+                        return;
+                    }
+
+                    if (data.message && data.categories.length === 0) {
+                         console.info("提示信息:", data.message);
+                         showStatus(data.message, false); // 显示无数据提示
+                         return;
+                    }
+
+                    // --- 配置 ECharts 选项 ---
+                    const option = {
+                        title: {
+                            text: `处分类型统计 (${data.startDate} 到 ${data.endDate})`,
+                            left: 'center'
+                        },
+                        tooltip: { // 提示框组件
+                            trigger: 'axis', // 坐标轴触发
+                            axisPointer: { // 坐标轴指示器配置项
+                                type: 'shadow' // 阴影指示器
+                            }
+                        },
+                        legend: { // 图例组件
+                             data:['处分数量'],
+                             top: 'bottom'
+                         },
+                        grid: { // 网格配置，控制图表位置
+                            left: '3%',
+                            right: '4%',
+                            bottom: '10%', // 留出空间给图例和 x 轴标签
+                            containLabel: true // 防止标签溢出
+                        },
+                        xAxis: { // X 轴配置
+                            type: 'category', // 类目轴
+                            data: data.categories, // 从后端获取的类型名称
+                            axisLabel: {
+                                interval: 0, // 显示所有标签
+                                rotate: 30   // 旋转标签以防重叠
+                            }
+                        },
+                        yAxis: { // Y 轴配置
+                            type: 'value', // 数值轴
+                            name: '数量'
+                        },
+                        series: [ // 系列列表，每个系列是一个图表类型
+                            {
+                                name: '处分数量', // 系列名称，用于 tooltip 和 legend
+                                type: 'bar', // 图表类型：柱状图
+                                data: data.values, // 从后端获取的数量
+                                emphasis: { // 高亮状态配置
+                                    focus: 'series'
+                                },
+                                label: { // 显示柱子上的数值
+                                    show: true,
+                                    position: 'top'
+                                }
+                            }
+                        ],
+                         toolbox: { // 工具箱组件
+                            feature: {
+                                saveAsImage: { show: true, title: '保存图片' }, // 保存为图片
+                                dataView: { show: true, readOnly: false, title: '数据视图' }, // 数据视图
+                                magicType: { show: true, type: ['line', 'bar'], title: {line:'切换为折线图', bar:'切换为柱状图'} }, // 动态类型切换
+                                restore: { show: true, title: '还原' }, // 还原
+                            }
+                        }
+                    };
+
+                    // --- 使用配置项显示图表 ---
+                    myChart.setOption(option);
+
+                })
+                .catch(error => {
+                    console.error('获取或处理图表数据时出错:', error);
+                    showStatus(`加载图表时出错: ${error.message}`, true);
+                });
+        }
+
+        // 初始化图表
+        initChart();
+
+        // 当窗口大小变化时，重新调整图表大小
+        window.addEventListener('resize', function () {
+            if (myChart) {
+                myChart.resize();
+            }
+        });
+    });
+</script>
+{% endblock %}

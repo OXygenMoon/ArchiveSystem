@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block title %}首页{% endblock %}
+
+{% block content %}
+    <div class="quote-container">
+        <p class="quote">
+            {{ random_quote.quote_text }}
+            <!-- <br> -->
+            <span class="author">{{ random_quote.author }}</span>
+        </p>
+    </div>
+{% endblock %}

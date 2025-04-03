@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+
+{% block title %} 数据分析 {% endblock %}
+
+{% block content %}
+
+<div class="flex justify-center">
+    <h1 style="font-size: 20px; font-weight: bold ;">违纪违规概括</h1>
+</div>
+
+
+<div class="stats shadow" >
+    <div class="stat place-items-center">
+        <div class="stat-title">违纪违规总数</div>
+        <div class="stat-value text-primary">{{ total_count }}</div>
+        <!--        <div class="stat-desc">From January 1st to February 1st</div>-->
+    </div>
+
+    <div class="stat place-items-center">
+        <div class="stat-title">已撤销人数</div>
+        <div class="stat-value text-secondary">{{ revoked_count }}</div>
+        <!--        <div class="stat-desc text-secondary">↗︎ 40 (2%)</div>-->
+    </div>
+
+    <div class="stat place-items-center">
+        <div class="stat-title">未撤销人数</div>
+        <div class="stat-value text-accent">{{ not_revoked_count }}</div>
+        <!--        <div class="stat-desc">↘︎ 90 (14%)</div>-->
+    </div>
+</div>
+
+<br>
+<br>
+
+
+
+<div class="flex justify-center items-center">
+    <h1 style="font-size: 20px; font-weight: bold ;">每月违纪违规</h1>
+</div>
+
+
+<div class="stats shadow">
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年1月新增人数</div>
+        <div class="stat-value">{{ new_month_count[0] }}</div>
+    </div>
+     <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年2月新增人数</div>
+        <div class="stat-value">{{ new_month_count[1] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年3月新增人数</div>
+        <div class="stat-value">{{ new_month_count[2] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年4月新增人数</div>
+        <div class="stat-value">{{ new_month_count[3] }}</div>
+    </div>
+     <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年5月新增人数</div>
+        <div class="stat-value">{{ new_month_count[4] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年6月新增人数</div>
+        <div class="stat-value">{{ new_month_count[5] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年7月新增人数</div>
+        <div class="stat-value">{{ new_month_count[6] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年8月新增人数</div>
+        <div class="stat-value">{{ new_month_count[7] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年9月新增人数</div>
+        <div class="stat-value">{{ new_month_count[8] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年10月新增人数</div>
+        <div class="stat-value">{{ new_month_count[9] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年11月新增人数</div>
+        <div class="stat-value">{{ new_month_count[10] }}</div>
+    </div>
+    <div class="stat place-items-center">
+        <div class="stat-title">{{year}}年12月新增人数</div>
+        <div class="stat-value">{{ new_month_count[11] }}</div>
+    </div>
+</div>
+
+{% endblock %}

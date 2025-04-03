@@ -1,0 +1,37 @@
+{
+  "lzy": {
+    "username": "lzy",
+    "password": "123456",
+    "department": "经艺系",
+    "role": "super_admin",
+    "class": 2221
+  },
+  "tyy": {
+    "username": "tyy",
+    "password": "123456",
+    "department": "经艺系",
+    "role": "super_admin",
+    "class": -1
+  },
+  "dh": {
+    "username": "dh",
+    "password": "123456",
+    "department": "经艺系",
+    "role": "super_admin",
+    "class": 2430
+  },
+  "cyk": {
+    "username": "cyk",
+    "password": "123456",
+    "department": "智能制造系",
+    "role": "super_admin",
+    "class": -1
+  },
+  "hm": {
+    "username": "hm",
+    "password": "123456",
+    "department": "智能制造系",
+    "role": "super_admin",
+    "class": -1
+  }
+}

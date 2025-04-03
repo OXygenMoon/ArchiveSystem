@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html data-theme="cupcake">
+  <head>
+    <title>My App</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+
+  <body class="bg-base-200 min-h-screen md:px-0 flex flex-col">
+    <main class="flex-grow">
+      <div
+        class="flex justify-center items-center h-screen container mx-auto max-w-2xl"
+      >
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body p-8 md:p-12">
+            <h1
+              class="card-title justify-center text-3xl md:text-4xl font-bold mb-8"
+            >
+              {{ msg }}
+            </h1>
+            <div class="flex justify-center space-x-4">
+              <a
+                href="{{ url_for('login') }}"
+                class="btn btn-primary btn-lg btn btn-wide"
+                >登录</a
+              >
+            </div>
+            <div class="flex justify-center space-x-4">
+              <a
+                href="{{ url_for('register') }}"
+                class="btn btn-secondary btn-lg btn btn-wide"
+                >注册</a
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

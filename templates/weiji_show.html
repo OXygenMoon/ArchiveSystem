@@ -1,0 +1,597 @@
+    {% extends "layout.html" %}
+
+    {% block title %}查看违纪违规{% endblock %}
+
+    {% block content %}
+    <div class="mb-4 flex justify-between items-center">
+        <div class="flex items-center">
+            <div id="pageInfo" class="text-sm text-gray-500 mr-4"></div>
+            <div class="flex items-center">
+                <select id="entriesPerPage" class="select select-bordered select-sm w-full max-w-xs">
+                    <option disabled >每页显示?</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span class="ml-2">条</span>
+            </div>
+        </div>
+        <div class="flex items-center">
+            <input type="text" id="searchInput" placeholder="搜索..." class="input input-bordered input-sm w-full max-w-xs mr-2"/>
+            <button id="searchButton" class="btn btn-sm btn-primary mr-2 p-2">搜索</button>
+            <button id="resetButton" class="btn btn-sm btn-secondary p-2">重置</button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="table dataTable m-4 max-width-[80%]">
+            <thead>
+                <tr>
+                <th data-column="id">编号</th>
+                <th data-column="name">姓名</th>
+                <th data-column="department">系部</th>
+                <th data-column="class">班级</th>
+                <th data-column="level">等级</th>
+                <th data-column="date">日期</th>
+                <th data-column="type">类型</th>  <!-- 新增类型列 -->
+                <th data-column="reason">原因</th>
+                <th data-column="revoke">撤销信息</th>
+                {% if user_role in ['super_admin', 'department_admin'] %}
+                    <th>操作</th>
+                {% endif %}
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- 表格数据将在这里通过JavaScript生成 -->
+            </tbody>
+        </table>
+        <!-- 分页按钮 -->
+        <div id="pagination" class="flex justify-center join">
+        </div>
+        <!-- 编辑弹窗 -->
+        <dialog id="editModal" class="modal">
+            <div class="modal-box">
+                <form id="editForm" method="dialog">
+                    <h3 class="font-bold text-lg">编辑违纪信息</h3>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">编号</span>
+                        </label>
+                        <input type="text" id="editId" class="input input-bordered" disabled/>
+                    </div>
+                    <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">处理 by</span>
+                    </label>
+                    <input type="text" id="byteacher" class="input input-bordered" readonly/>
+                </div>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">姓名</span>
+                        </label>
+                        <input type="text" id="editName" class="input input-bordered" required />
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">系部</span>
+                        </label>
+                        <input type="text" id="editDepartment" class="input input-bordered" required/>
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">班级</span>
+                        </label>
+                        <input type="text" id="editClass" class="input input-bordered" required/>
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">等级</span>
+                        </label>
+                        <select id="editLevel" class="select select-bordered w-full" required>
+                            <option value="警告">警告</option>
+                            <option value="严重警告">严重警告</option>
+                            <option value="记过">记过</option>
+                            <option value="留校察看">留校察看</option>
+                            <option value="开除学籍">开除学籍</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">日期</span>
+                        </label>
+                        <input type="date" id="editDate" class="input input-bordered" required/>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">类型</span>
+                        </label>
+                    <select id="editType" class="select select-bordered w-full" required>
+                        <option value="手机管理">手机管理</option>
+                            <option value="课堂纪律">课堂纪律</option>
+                            <option value="男女关系">男女关系</option>
+                            <option value="同学关系">同学关系</option>
+                            <option value="寝室违纪">寝室违纪</option>
+                            <option value="抽烟">抽烟</option>
+                            <option value="打架">打架</option>
+                            <option value="出勤">出勤</option>
+                            <option value="其他原因">其他原因</option>
+                        </select>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">原因</span>
+                        </label>
+                        <textarea  id="editReason" class="textarea textarea-bordered"></textarea>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                        <span class="label-text">撤销信息</span>
+                        </label>
+                        <input type="text" id="editRevoke" class="input input-bordered"/>
+                    </div>
+
+                    <div class="modal-action">
+                        <button class="btn" type="button" onclick="fillRevoke()">撤销</button>
+                        <button class="btn" type="button" onclick="document.getElementById('editModal').close()">关闭</button>
+                        <button class="btn btn-primary" type="submit">提交</button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
+    </div>
+    <div id="errorMessage" class="alert alert-error mt-4" style="display:none;"></div>
+    {% endblock %}
+
+
+    {% block scripts %}
+    <script>
+        const tableBody = document.getElementById('tableBody');
+        const entriesPerPageSelect = document.getElementById('entriesPerPage');
+        const paginationContainer = document.getElementById('pagination');
+        const pageInfo = document.getElementById('pageInfo');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const resetButton = document.getElementById('resetButton');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        let currentPage = {{currentPage}};
+        let entriesPerPage = {{ perPage }};
+        let currentSearchTerm = ''; // 当前搜索关键词
+        entriesPerPageSelect.value = entriesPerPage;
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        let currentSortColumn = null;
+        let isAscending = true;
+
+
+        // 封装 fetch 请求函数
+        function fetchData(url, options = {}) {
+            errorMessageDiv.style.display = 'none';
+            return fetch(url, options)
+                .then(response => {
+                    if (!response.ok) {
+                        // 尝试解析 JSON 错误信息
+                        return response.json().then(err => {
+                            throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                        }).catch(() => {
+                            // 如果不是 JSON 格式的错误信息，则返回默认错误
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    errorMessageDiv.textContent = `数据加载失败: ${error.message}`; // 使用 error.message
+                    errorMessageDiv.style.display = 'block';
+                    throw error; // 将错误抛出，以便在调用函数中继续处理
+                })
+
+        }
+
+        // 获取数据并更新表格
+        function fetchPageData() {
+            const url = `/weiji_show?page=${currentPage}&perPage=${entriesPerPage}&search=${currentSearchTerm}&sort_by=${currentSortColumn}&order=${isAscending ? 'asc' : 'desc'}`;
+            fetchData(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(data => {
+                    console.log('Fetched Data:', data);
+                    const pageData = data.records;
+                    const totalPages = data.totalPages;
+                    updateTableData(pageData);
+                    generatePaginationButtons(totalPages);
+                    // 更新页码显示
+                    pageInfo.textContent = `当前第 ${currentPage} 页，共 ${totalPages} 页`;
+                })
+                .catch(() => {
+                    //  错误信息已经在fetchData中处理
+                });
+        }
+
+        // 更新表格数据
+        function updateTableData(pageData) {
+            tableBody.innerHTML = '';
+            pageData.forEach(data => {
+                const row = document.createElement('tr');
+                row.classList.add('hover');
+                let actionButtons = '';
+                {% if user_role in ['super_admin', 'department_admin'] %}
+                actionButtons = `
+                    <td>
+                    <button class="btn btn-sm btn-outline btn-accent download-btn" data-id="${data[0]}">下载</button>
+                    <button class="btn btn-sm btn-outline btn-primary edit-btn" data-id="${data[0]}" >编辑</button>
+                    <button class="btn btn-sm btn-outline btn-secondary delete-btn" data-id="${data[0]}">删除</button>
+
+                    </td>
+                `;
+                {% endif %}
+
+                const originalName = data[1];
+                const maskedName = originalName.length >= 2
+                    ? originalName.substring(0, 1) + '*' + originalName.substring(2)
+                    : originalName;
+
+                row.innerHTML = `
+                    <th>${data[0]}</th>
+                    <th>${maskedName}</th>
+                    <th>${data[8]}</th>
+                    <th>${data[2]}</th>
+                    <th>${data[3]}</th>
+                    <th>${formatDate(data[4])}</th>
+                    <th>${data[5]}</th>
+                    <th>${data[6]}</th>
+                    <th>${data[7]}</th>
+                    ${actionButtons}
+                `;
+                tableBody.appendChild(row);
+            });
+            // 为编辑按钮添加事件监听器
+            const editButtons = document.querySelectorAll('.edit-btn');
+            editButtons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const recordId = event.target.getAttribute('data-id');
+                    openEditModal(recordId)
+                });
+            });
+            // 为删除按钮添加事件监听器
+            const deleteButtons = document.querySelectorAll('.delete-btn');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const recordId = event.target.getAttribute('data-id');
+                    deleteRecord(recordId);
+                });
+            });
+
+            const downloadButtons = document.querySelectorAll('.download-btn');
+            downloadButtons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const recordId = event.target.getAttribute('data-id');
+                    window.location.href = `/download_disposition/${recordId}`; // 触发下载
+                });
+            });
+        }
+
+
+        // 日期格式化函数
+        function formatDate(dateString) {
+            if (!dateString) return ''; // 处理 null 或 undefined 情况
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) {
+                    return dateString; // 如果不是有效日期，则返回原始字符串
+                }
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            } catch (error) {
+                console.error("日期解析错误", error);
+                return dateString; // 如果解析错误，返回原始字符串
+            }
+        }
+
+        // 生成分页按钮
+        function generatePaginationButtons(totalPages) {
+            paginationContainer.innerHTML = '';
+            const maxButtons = 9; // 设置最大按钮数量
+            let buttons = [];
+            if (totalPages <= 1) {
+                return; // 不需要分页
+            }
+
+            // 添加上一页按钮
+            const prevButton = document.createElement('button');
+            prevButton.classList.add('join-item', 'btn', 'border', 'w-2', 'h-1', 'rounded', 'base-200', 'hover:base-300');
+            prevButton.innerHTML = '<'; // 使用 HTML 实体显示 "<" 符号
+            prevButton.disabled = currentPage === 1;
+            prevButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    fetchPageData();
+                }
+            });
+            paginationContainer.appendChild(prevButton);
+
+            // 添加第一页按钮
+            buttons.push(1);
+
+
+            // 计算中间页码范围
+            let start = Math.max(2, currentPage - Math.floor((maxButtons - 2) / 2));
+            let end = Math.min(totalPages - 1, currentPage + Math.floor((maxButtons - 2) / 2));
+
+            // 处理边界情况，保证按钮总数不超过 maxButtons
+            if (end - start + 1 < maxButtons - 2) {
+                if (start === 2) {
+                    end = Math.min(totalPages - 1, start + maxButtons - 3);
+                } else if (end === totalPages - 1) {
+                    start = Math.max(2, end - maxButtons + 3)
+                }
+            }
+
+            let frontEllipsisCount = 0;
+            let endEllipsisCount = 0;
+
+            // 添加省略号（如果需要）
+            if (start > 2) {
+                buttons.push('...');
+                frontEllipsisCount = 1;
+            }
+
+            // 添加中间页码
+            for (let i = start; i <= end; i++) {
+                buttons.push(i);
+            }
+
+
+            // 添加省略号（如果需要）
+            if (end < totalPages - 1) {
+                buttons.push('...');
+                endEllipsisCount = 1;
+            }
+
+            // 添加最后一页按钮
+            if (totalPages > 1) {
+                buttons.push(totalPages);
+            }
+
+            // 计算需要添加的省略号数量
+            let currentLength = buttons.length;
+
+            // 补齐省略号
+            if (currentLength < maxButtons) {
+                const neededEllipsis = maxButtons - currentLength
+                if (frontEllipsisCount === 1 && endEllipsisCount === 1) {
+                    frontEllipsisCount = Math.ceil(neededEllipsis / 2);
+                    endEllipsisCount = neededEllipsis - frontEllipsisCount;
+
+                } else if (frontEllipsisCount === 1) {
+                    frontEllipsisCount = neededEllipsis
+                } else if (endEllipsisCount === 1) {
+                    endEllipsisCount = neededEllipsis
+                }
+
+                const insertIndex = buttons.indexOf('...');
+                if (insertIndex !== -1 && frontEllipsisCount > 1) {
+                    for (let i = 0; i < frontEllipsisCount - 1; i++) {
+                        buttons.splice(insertIndex, 0, '...')
+                    }
+                }
+
+                const endInsertIndex = buttons.lastIndexOf('...');
+                if (endInsertIndex !== -1 && endEllipsisCount > 1) {
+                    for (let i = 0; i < endEllipsisCount - 1; i++) {
+                        buttons.splice(endInsertIndex + 1, 0, '...')
+                    }
+                }
+            }
+
+            buttons.forEach(item => {
+                const button = document.createElement('button');
+                button.classList.add('join-item', 'btn', 'border', 'w-2', 'h-1', 'rounded', 'base-200', 'hover:base-300');
+                if (item === '...') {
+                    button.innerText = item;
+                    button.classList.add('btn-disabled');
+                    button.disabled = true;
+                } else {
+                    button.innerText = item;
+                    if (item === currentPage) {
+                        button.classList.add('bg-primary');
+                    }
+                    button.addEventListener('click', () => {
+                        currentPage = item;
+                        fetchPageData();
+                    });
+                }
+                paginationContainer.appendChild(button);
+            })
+
+
+            // 添加下一页按钮
+            const nextButton = document.createElement('button');
+            nextButton.classList.add('join-item', 'btn', 'border', 'w-2', 'h-1', 'rounded', 'base-200', 'hover:base-300');
+            nextButton.innerHTML = '>'; // 使用 HTML 实体显示 ">" 符号
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    fetchPageData();
+                }
+            });
+            paginationContainer.appendChild(nextButton);
+        }
+
+        // 监听每页条数的改变
+        entriesPerPageSelect.addEventListener('change', () => {
+            entriesPerPage = parseInt(entriesPerPageSelect.value);
+            currentPage = 1;
+            fetchPageData();
+        });
+
+        // 监听搜索按钮点击事件
+        searchButton.addEventListener('click', () => {
+            currentSearchTerm = searchInput.value.trim();
+            currentPage = 1; // 搜索时重置为第一页
+            fetchPageData();
+        });
+        // 监听搜索框的回车事件
+        searchInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // 阻止默认的回车行为
+                currentSearchTerm = searchInput.value.trim();
+                currentPage = 1;
+                fetchPageData();
+            }
+        });
+
+        //监听重置按钮
+        resetButton.addEventListener('click', () => {
+            searchInput.value = '';
+            currentSearchTerm = '';
+            currentPage = 1;
+            fetchPageData();
+        });
+
+        // 打开编辑弹窗
+        function openEditModal(recordId) {
+            // 查找对应的记录
+            fetchData(`/get_record?record_id=${recordId}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(data => {
+                    console.log("get_record result:", data);
+                    // 将数据显示在表单中
+                    document.getElementById('editId').value = data[0];
+                    document.getElementById('byteacher').value = data[9]; // 经手人 index 9
+                    document.getElementById('editName').value = data[1];
+                    document.getElementById('editDepartment').value = data[8]; // 系部 index 8
+                    document.getElementById('editClass').value = data[2];
+                    document.getElementById('editLevel').value = data[3];
+                    document.getElementById('editDate').value = formatDate(data[4]);
+                    document.getElementById('editType').value = data[5];   // 类型 index 5
+                    document.getElementById('editReason').value = data[6]; // 原因 index 6
+                    document.getElementById('editRevoke').value = data[7]; // 撤销 index 7
+
+                    // 显示弹窗
+                    editModal.showModal();
+                })
+                .catch(() => {
+                    //  错误信息已经在fetchData中处理
+                });
+        }
+
+        // 编辑表单提交处理
+        editForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const recordId = document.getElementById('editId').value;
+            const updatedData = {
+                name: document.getElementById('editName').value,
+                department: document.getElementById('editDepartment').value,
+                className: document.getElementById('editClass').value,
+                level: document.getElementById('editLevel').value,
+                date: document.getElementById('editDate').value,
+                type: document.getElementById('editType').value,  // 获取类型的值
+                reason: document.getElementById('editReason').value,
+                revoke: document.getElementById('editRevoke').value,
+                byteacher: document.getElementById('byteacher').value,
+            };
+            fetchData(`/update_record?record_id=${recordId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(updatedData)
+            })
+                .then(data => {
+                    console.log("update_record result:", data)
+                    editModal.close()
+                    fetchPageData() // 刷新页面
+                })
+                .catch(() => {
+                    //  错误信息已经在fetchData中处理
+                });
+        });
+
+        // 删除记录
+        function deleteRecord(recordId) {
+            if (confirm("确定要删除该条记录吗？")) {
+                fetchData(`/delete_record?record_id=${recordId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(data => {
+                        console.log("delete_record result:", data)
+                        fetchPageData() // 刷新页面
+                    })
+                    .catch(() => {
+                        //  错误信息已经在fetchData中处理
+                    });
+            }
+        }
+
+
+        // 为表头添加排序功能
+        const tableHeaders = document.querySelectorAll('thead th[data-column]');
+        tableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.getAttribute('data-column');
+                sortData(column)
+            })
+        })
+
+
+        function sortData(column) {
+            if (currentSortColumn === column) {
+                isAscending = !isAscending;
+            } else {
+                currentSortColumn = column;
+                isAscending = true;
+            }
+            // 在这里进行排序逻辑，然后重新渲染表格
+            console.log(`sort by column: ${column}, order: ${isAscending ? 'ASC' : 'DESC'}`)
+            fetchData(`/weiji_show?page=${currentPage}&perPage=${entriesPerPage}&search=${currentSearchTerm}&sort_by=${column}&order=${isAscending ? 'asc' : 'desc'}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(data => {
+                    console.log('Fetched Data after sort:', data);
+                    const pageData = data.records;
+                    updateTableData(pageData);
+                })
+                .catch(() => {
+                    //  错误信息已经在fetchData中处理
+                });
+        }
+
+        function fillRevoke() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从 0 开始，需要 +1，并且补零
+            const day = String(now.getDate()).padStart(2, '0');
+            const formattedDate = `${year}.${month}.${day} 已撤销`;
+            document.getElementById('editRevoke').value = formattedDate;
+        }
+
+        function revokeAndClose() {
+            fillRevoke(); // 调用 fillRevoke 函数，填入撤销信息
+            document.getElementById('editModal').close();
+        }
+
+
+
+        //初始化数据加载
+        fetchPageData();
+    </script>
+    {% endblock %}

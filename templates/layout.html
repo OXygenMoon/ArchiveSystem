@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html data-theme="cupcake">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}{% endblock %}</title>
+    <!-- 引入 Tailwind CSS 和 DaisyUI -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script> -->
+
+  
+    <!-- 引入自定义 CSS -->
+    <link href="../static/main.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <!-- 左侧 logo 自适应导航 -->
+    <header>
+      <div class="navbar bg-base-100 shadow-sm">
+        <div class="navbar-start">
+          <div class="dropdown">
+            <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h8m-8 6h16"
+                />
+              </svg>
+            </div>
+            <ul
+              tabindex="0"
+              class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow lg:hidden"
+            >
+              <li><a>Item 1</a></li>
+              <li>
+                <a>Parent</a>
+                <ul class="p-2">
+                  <li><a>Submenu 1</a></li>
+                  <li><a>Submenu 2</a></li>
+                </ul>
+              </li>
+              <li><a>Item 3</a></li>
+            </ul>
+          </div>
+          <a href="{{ url_for('home')}}" class="btn btn-ghost text-xl">德育平台</a>
+        </div>
+
+        <!-- 居中导航栏 -->
+        <!-- normal -->
+        <div class="navbar-center hidden lg:flex">
+          <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
+            <a href="{{ url_for('data_analysis')}}">违纪违规总览</a>
+          </div>
+
+          <!-- <div class="navbar-center hidden lg:flex">
+            <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
+              <a href="{{ url_for('data_analysis_plot_data')}}">违纪违规图表</a>
+            </div> -->
+
+
+            {% if user_role in ['super_admin', 'department_admin'] %}
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
+              系部管理
+            </div>
+            <ul
+              tabindex="0"
+              class="flex dropdown-content menu bg-base-100 rounded-box z-1 w-60 p-2 shadow-sm"
+            >
+              <div class="flex">
+                <li><a href="{{ url_for('weiji_add')}}">添加违纪违规</a></li>
+              </div>
+              <div class="flex">
+                <li><a href="{{ url_for('weiji_show') }}">查看违纪违规</a></li>
+              </div>
+            </ul>
+          </div>
+            {% endif %}
+
+            {% if user_class != -1 %}
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
+              班级管理
+            </div>
+            <ul
+              tabindex="0"
+              class="flex dropdown-content menu bg-base-100 rounded-box z-1 w-60 p-2 shadow-sm"
+            >
+              <div class="flex">
+                <li><a href="{{ url_for('test')}}">学生名单</a></li>
+              </div>
+              <div class="flex">
+                <li><a href = "{{ url_for('class_weiji_show')}}">班级违纪违规</a></li>
+              </div>
+            </ul>
+          </div>
+            {% endif %}
+        </div>
+
+        <!-- 右侧信息栏 -->
+        <div class="navbar-end">
+          <div class="flex flex-none gap-2 items-center">
+            <!-- 主题切换按钮 -->
+            <!-- <button
+              class="btn btn-sm btn-ghost"
+              id="themeToggleBtn"
+            >
+              <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="feather feather-moon hidden dark:block"
+                ><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="feather feather-sun block dark:hidden"
+                ><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </button> -->
+
+            <div class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                class="btn btn-ghost btn-circle avatar"
+              >
+                <div class="w-10 rounded-full">
+                  <img
+                    alt="Tailwind CSS Navbar component"
+                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+                  />
+                </div>
+              </div>
+              <ul
+                tabindex="0"
+                class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-32 p-2 shadow"
+              >
+                <li>
+                  <a class="justify-between">
+                    个人
+                    <!-- <span class="badge">New</span> -->
+                  </a>
+                </li>
+                  <li><a>设置</a></li>
+                <li><a href="{{ url_for('login') }}">退出</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- body -->
+    <main>
+      <body>
+        <div class="main-content p-4">
+          <!-- 主体内容 -->
+            {% block content %}
+            {% endblock %}
+        </div>
+      </body>
+    </main>
+
+    <footer
+      class="footer footer-center p-4 bg-base-300 text-base-content fixed bottom-0 w-full"
+    >
+      <div>
+        <p>Copyright © {{ year }} - All right reserved by Lao Zhenyu</p>
+      </div>
+    </footer>
+  </body>
+
+  {% block scripts %}
+    <script>
+      const themeToggleBtn = document.getElementById('themeToggleBtn');
+      themeToggleBtn.addEventListener('click', () => {
+          const html = document.documentElement;
+           if(html.getAttribute('data-theme') === 'cupcake') {
+               html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark'); // 存储主题选择
+           } else {
+               html.setAttribute('data-theme', 'cupcake')
+               localStorage.setItem('theme', 'cupcake'); // 存储主题选择
+           }
+
+      });
+       // 页面加载时应用存储的主题
+       const storedTheme = localStorage.getItem('theme');
+      if (storedTheme) {
+          document.documentElement.setAttribute('data-theme', storedTheme);
+      }
+    </script>
+      {% block additional_scripts %}
+    {% endblock %}
+  {% endblock %}
+
+</html>

@@ -1,0 +1,197 @@
+html {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  /* 不再设置最小高度，让内容自动撑开 */
+  padding-bottom: 60px;
+}
+
+header {
+  background-color: #f9f7f5;
+  margin: 0;
+  padding: 0px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 0px 2px rgba(0, 0, 0, 0.2);
+}
+
+main {
+  /*flex: 1 0 auto;*/
+  padding: 20px;
+  display: flex;
+  justify-content: center; /* 水平居中 content-box */
+  align-items: center; /* 垂直居中 main-content */
+  background-color: #fcf9f8;
+  padding-top: 80px; /* 为固定定位的 header 预留空间 */
+}
+
+.main-content {
+  /* background-color: #fff;  */
+  border: 1px solid #ccc;
+  /* padding: 20px; */
+  /*width: 85%;*/
+  width: 90%;
+  /* height: 90%; */
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+footer {
+  /* background-color: #eeebea; */
+  padding: 20px;
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  bottom: auto; /* 将 footer 固定在底部 */
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2); /* 负的垂直偏移使阴影向上延伸 */
+  height: 60px;
+  width: 100%;
+}
+
+/* 针对第二列（姓名）设置最小宽度并省略 */
+table tr th:nth-child(1) {
+  width: 3%;
+}
+
+table tr th:nth-child(2),
+table tr th:nth-child(3),
+table tr th:nth-child(4) {
+  /* min-width: 80px;
+    max-width: 150px; */
+  width: 7%;
+  white-space: nowrap;
+  /*overflow: hidden;*/
+  /*text-overflow: ellipsis;*/
+  /*display: block;*/
+}
+
+/*日期*/
+table tr th:nth-child(5) {
+  /* min-width: 80px;
+    max-width: 140px; */
+  width: 7%; /* 减少日期列的宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /*display: block;*/
+}
+
+/* 类型 */
+table tr th:nth-child(6) {
+  width: 10%; /* 新增类型列的宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 针对第7列（原因）设置最小宽度并省略 */
+table tr th:nth-child(7) {
+  /* min-width: 100px;
+    max-width: 300px; */
+  width: 8%; /* 略微减少原因列的宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /*display: block;*/
+}
+
+table tr th:nth-child(8) {
+  /* min-width: 100px;
+    max-width: 100px; */
+  width: 15%; /* 减少撤销信息列的宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+table tr th:nth-child(9) {
+  width: 10%; /* 略微减少操作列的宽度 */
+}
+
+table tr th:nth-child(10) {
+  width: 15%; /* 略微减少操作列的宽度 */
+}
+
+table.dataTable td:nth-child(n + 6) {
+  white-space: normal;
+  word-break: break-word;
+}
+
+table.dataTable {
+  width: 95% !important;
+  align-items: center;
+  table-layout: fixed; /* 强制使用定义的列宽 */
+}
+
+table.dataTable td {
+  white-space: normal;
+  word-break: break-word;
+}
+
+table.dataTable th {
+  white-space: nowrap;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  background-color: #f9f7f5; /* 确保背景色与页面背景一致 */
+  z-index: 1000; /* 确保表头在其他内容之上 */
+}
+
+#pagination {
+  padding: 20px;
+}
+
+.btn-limit-size {
+  width: 5px;
+  height: 5px;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap; /* 允许元素换行 */
+  justify-content: space-around; /* 水平居中 */
+  /* 其他样式，根据需要添加 */
+}
+
+.stat {
+  width: calc(33.333% - 20px); /* 控制 stat 的宽度，使其每行显示 3 个 */
+  margin: 10px; /* 可选： 添加外边距 */
+}
+
+.input.input-bordered[readonly] {
+  background-color: #efeae5; /* 浅灰色背景 */
+  color: #777; /* 深灰色文字 */
+  cursor: not-allowed; /* 鼠标悬停时显示禁止符号 */
+  opacity: 0.7; /* 稍微降低透明度，增加视觉暗示 */
+}
+
+.quote-container {
+  text-align: center;
+}
+
+.quote {
+  font-style: italic;
+  font-family: 'Crimson Text', serif;
+  font-size: 1.5em;
+  color: #333;
+  max-width: 80%;
+  margin: 0 auto;
+  white-space: pre-line; /* 保留换行符 */
+}
+
+.author {
+  display: block; /* 将作者名设为块级元素，占据一行 */
+  text-align: right; /* 靠右对齐 */
+  font-size: 0.8em; /* 作者的字体稍微小一点 */
+  color: #777; /* 作者的颜色稍微淡一点 */
+  margin-top: 0.5em; /* 作者名和引用语之间留一些间距 */
+}
