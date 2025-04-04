@@ -1,6 +1,7 @@
 {
   "lzy": {
     "username": "lzy",
+    "truename": "劳振煜老师",
     "password": "123456",
     "department": "经艺系",
     "role": "super_admin",
@@ -8,6 +9,7 @@
   },
   "tyy": {
     "username": "tyy",
+    "truename": "陶云云主任",
     "password": "123456",
     "department": "经艺系",
     "role": "super_admin",
@@ -15,6 +17,7 @@
   },
   "dh": {
     "username": "dh",
+    "truename": "都航老师",
     "password": "123456",
     "department": "经艺系",
     "role": "super_admin",
@@ -22,6 +25,7 @@
   },
   "cyk": {
     "username": "cyk",
+    "truename": "陈宇堃老师",
     "password": "123456",
     "department": "智能制造系",
     "role": "super_admin",
@@ -29,6 +33,7 @@
   },
   "hm": {
     "username": "hm",
+    "truename": "黄明主任",
     "password": "123456",
     "department": "智能制造系",
     "role": "super_admin",

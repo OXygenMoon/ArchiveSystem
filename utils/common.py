@@ -6,10 +6,12 @@ def load_session() -> dict:
     user_department = session.get('department')
     user_class = session.get('class')
     user_name = session.get('username')
+    user_truename = session.get('truename')
     response_data = {
         "user_role": user_role,
         "user_department": user_department,
         "user_class": user_class,
-        "user_name": user_name
+        "user_name": user_name,
+        "user_truename": user_truename
     }
     return response_data

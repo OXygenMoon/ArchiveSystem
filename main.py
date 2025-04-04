@@ -46,12 +46,6 @@ Session(app)
 # 日志
 logger = app.logger
 
-# 数据库
-# db = SQLAlchemy(app)
-
-# 登录控制器
-# login_manager = LoginManager(app)
-# login_manager.login_view = 'login'
 
 # 上传目录
 if not os.path.exists(UPLOAD_FOLDER):
@@ -65,11 +59,13 @@ def load_session() -> dict:
     user_department = session.get('department')
     user_class = session.get('class')
     user_name = session.get('username')
+    user_truename = session.get('truename')
     response_data = {
         "user_role": user_role,
         "user_department": user_department,
         "user_class": user_class,
-        "user_name": user_name
+        "user_name": user_name,
+        "user_truename": user_truename
     }
     return response_data
 
@@ -121,6 +117,7 @@ def login():
                 session['role'] = user[username]['role']
                 session['department'] = user[username]['department']
                 session['class'] = user[username]['class']
+                session['truename'] = user[username]['truename']
                 session.permanent = True
                 return redirect(url_for('home'))
             else:
@@ -145,7 +142,7 @@ import random
 def home():
     # 1. 加载 session
     response_data = load_session()  # 从 session 加载数据
-    quotes = [
+    quotes = quotes = [
     {"quote_text": "德育是教育之首，是培养全面发展的人才的根本保证。", "author": ""},
     {"quote_text": "教育的根本任务在于立德树人。", "author": "习近平"},
     {"quote_text": "教书育人，育人为本；德智体美，德育为先。", "author": ""},
@@ -153,31 +150,31 @@ def home():
     {"quote_text": "爱是教育的灵魂，没有爱就没有教育。", "author": "苏霍姆林斯基"},
     {"quote_text": "教育植根于爱。", "author": "福禄贝尔"},
     {"quote_text": "没有德育，就没有真正的教育。", "author": "马卡连柯"},
-    {"quote_text": "教师的爱是滴滴甘露，即使枯萎的心灵也能苏醒。", "author": "巴甫连柯"},
+    {"quote_text": "教师的爱是滴滴甘露，即使枯萎的心灵也能苏醒。", "author": "巴甫连柯"}, # (需要注意，此处的“巴甫连柯”相对不如苏霍姆林斯基等人著名，但该句名言确有流传并归于此名下)
     {"quote_text": "教育者，非为已往，非为现在，乃专为将来。", "author": "蔡元培"},
     {"quote_text": "要尊重儿童的感情，也要引导儿童的感情。", "author": "鲁迅"},
     {"quote_text": "德者，才之帅也；才者，德之资也。", "author": "司马光"},
-    {"quote_text": "智育是思想的提琴，而德育是操纵那提琴的弓。", "author": "斯特恩"},
+    {"quote_text": "智育是思想的提琴，而德育是操纵那提琴的弓。", "author": "斯特恩"}, # (劳伦斯·斯特恩，英国作家)
     {"quote_text": "教育的目的是培养身心和谐发展的人。", "author": "马卡连柯"},
     {"quote_text": "为人师表，以德立身。", "author": ""},
     {"quote_text": "育人先育德，正人先正己。", "author": ""},
     {"quote_text": "关爱是最好的教育。", "author": ""},
     {"quote_text": "学生是学习的主人，教师是学习的引路人。", "author": "叶圣陶"},
-    {"quote_text": "教育贵在启发，而非灌输。", "author": "第斯多惠"},
+    {"quote_text": "教育贵在启发，而非灌输。", "author": "第斯多惠"}, # (阿道夫·第斯多惠，德国教育家)
     {"quote_text": "教育的艺术在于唤醒和激励。", "author": ""},
     {"quote_text": "以爱动其心，以理服其人。", "author": ""},
-    {"quote_text": "中职教育重在培养学生的职业道德和职业技能。", "author": ""},
-    {"quote_text": "德技并修，知行合一。", "author": ""},
+    {"quote_text": "中职教育重在培养学生的职业道德和职业技能。", "author": ""}, # (针对中职教育的理念性表述)
+    {"quote_text": "德技并修，知行合一。", "author": ""}, # (现代职业教育常用语，“知行合一”源自王阳明，但组合使用是现代提法)
     {"quote_text": "技术是工具，道德是导航。", "author": ""},
-    {"quote_text": "中职学生更需要关爱和引导。", "author": ""},
+    {"quote_text": "中职学生更需要关爱和引导。", "author": ""}, # (针对中职教育的理念性表述)
     {"quote_text": "用爱心点亮学生的未来。", "author": ""},
-    {"quote_text": "中职德育要贴近学生实际，注重实践。", "author": ""},
-    {"quote_text": "把德育融入到职业技能教学中。", "author": ""},
+    {"quote_text": "中职德育要贴近学生实际，注重实践。", "author": ""}, # (针对中职教育的理念性表述)
+    {"quote_text": "把德育融入到职业技能教学中。", "author": ""}, # (针对中职教育的理念性表述)
     {"quote_text": "以德立学，以技立业。", "author": ""},
-    {"quote_text": "中职教育是为学生终身发展奠基。", "author": ""},
+    {"quote_text": "中职教育是为学生终身发展奠基。", "author": ""}, # (针对中职教育的理念性表述)
     {"quote_text": "关爱每一个学生，成就每一个梦想。", "author": ""},
-    {"quote_text": "教育不是注满一桶水，而是点燃一把火。", "author": "叶芝"},
-    {"quote_text": "教师是人类灵魂的工程师。", "author": "斯大林"},
+    {"quote_text": "教育不是注满一桶水，而是点燃一把火。", "author": "叶芝"}, # (常归于叶芝，也有说法源自普鲁塔克)
+    {"quote_text": "教师是人类灵魂的工程师。", "author": "斯大林"}, # (此说法流传甚广，常归于斯大林)
     {"quote_text": "热爱学生是教师生活中最主要的东西。", "author": "苏霍姆林斯基"},
     {"quote_text": "教育的最高境界是爱。", "author": ""},
     {"quote_text": "尊重学生的个性，促进学生的全面发展。", "author": ""},
@@ -187,15 +184,15 @@ def home():
     {"quote_text": "爱满天下，德行千古。", "author": ""},
     {"quote_text": "以身作则，为人师表。", "author": ""},
     {"quote_text": "没有惩罚的教育是不完整的教育。", "author": "马卡连柯"},
-     {"quote_text": "德育犹如树木的根，只有根深才能叶茂。", "author": ""},
-    {"quote_text": "中职教育，不只是技能的传授，更是人格的塑造。", "author": ""},
+    {"quote_text": "德育犹如树木的根，只有根深才能叶茂。", "author": ""},
+    {"quote_text": "中职教育，不只是技能的传授，更是人格的塑造。", "author": ""}, # (针对中职教育的理念性表述)
     {"quote_text": "用欣赏的眼光看待学生，用宽容的心态对待学生。", "author": ""},
     {"quote_text": "教育的真谛在于启发学生的内在力量。", "author": ""},
     {"quote_text": "关爱是打开学生心灵的钥匙。", "author": ""},
-    {"quote_text": "中职德育，要注重学生的职业理想和职业责任感培养。", "author": ""},
+    {"quote_text": "中职德育，要注重学生的职业理想和职业责任感培养。", "author": ""}, # (针对中职教育的理念性表述)
     {"quote_text": "让每一个学生都找到自己的闪光点。", "author": ""},
     {"quote_text": "以爱为舟，载学生驶向成功的彼岸。", "author": ""},
-    {"quote_text": "中职教育，是为学生的幸福人生奠基。", "author": ""}
+    {"quote_text": "中职教育，是为学生的幸福人生奠基。", "author": ""} # (针对中职教育的理念性表述)
 ]
     response_data.update(random_quote=random.choice(quotes))
     return render_template('home.html', **response_data)
