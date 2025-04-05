@@ -18,12 +18,15 @@
   
     <!-- 引入自定义 CSS -->
     <link href="../static/main.css" rel="stylesheet" />
+
+    <!-- <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script> -->
   </head>
 
   <body>
     <!-- 左侧 logo 自适应导航 -->
     <header>
       <div class="navbar bg-base-100 shadow-sm">
+        <!-- 左侧 -->
         <div class="navbar-start">
           <div class="dropdown">
             <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
@@ -59,19 +62,27 @@
           </div>
           <a href="{{ url_for('home')}}" class="btn btn-ghost text-xl">德育平台</a>
         </div>
-
+        <!-- 中间 -->
+        <div class="navbar-center">
         <!-- 居中导航栏 -->
         <!-- normal -->
-        <div class="navbar-center hidden lg:flex">
-          <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-            <a href="{{ url_for('data_analysis')}}">违纪违规总览</a>
-          </div>
-
-          <!-- <div class="navbar-center hidden lg:flex">
+          <!-- 违纪违规 数据统计 -->
+          <div class="dropdown dropdown-hover">
             <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-              <a href="{{ url_for('data_analysis_plot_data')}}">违纪违规图表</a>
-            </div> -->
-
+              数据统计
+            </div>
+            <ul
+              tabindex="0"
+              class="flex dropdown-content menu bg-base-100 rounded-box z-1 w-60 p-2 shadow-sm"
+            >
+              <div class="flex">
+                <li><a href="{{ url_for('data_analysis')}}">违纪违规月度</a></li>
+              </div>
+              <div class="flex">
+                <li><a href="{{ url_for('data_plot')}}">违纪违规分类</a></li>
+              </div>
+            </ul>
+          </div>
 
             {% if user_role in ['super_admin', 'department_admin'] %}
           <div class="dropdown dropdown-hover">
@@ -111,8 +122,7 @@
           </div>
             {% endif %}
         </div>
-
-        <!-- 右侧信息栏 -->
+        <!-- 右侧 -->
         <div class="navbar-end">
           <div class="flex flex-none gap-2 items-center">
             <!-- 主题切换按钮 -->

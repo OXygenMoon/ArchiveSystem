@@ -7,8 +7,10 @@ import secrets
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # CSV 文件路径
-DATA_FILE = os.path.join(BASE_DIR, 'data/weiji.csv')
+DATA_FILE_JINGYI = os.path.join(BASE_DIR, 'data/weiji_jingyixi.csv')
+DATA_FILE_ZHIZAO = os.path.join(BASE_DIR, 'data/weiji_zhizaoxi.csv')
 ARCHIVE_CSV = 'data/archive.csv'  # 用于存储删除记录的 CSV
+
 
 # 存放生成的处分文档的文件夹
 # ARCHIVE_DIR = os.path.join(BASE_DIR, '违纪处分存档')

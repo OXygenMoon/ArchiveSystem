@@ -1,0 +1,1 @@
+journalctl -u myapp.service -n 100 --no-pager

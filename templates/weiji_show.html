@@ -50,45 +50,54 @@
         <div id="pagination" class="flex justify-center join">
         </div>
         <!-- 编辑弹窗 -->
-        <dialog id="editModal" class="modal">
-            <div class="modal-box">
-                <form id="editForm" method="dialog">
-                    <h3 class="font-bold text-lg">编辑违纪信息</h3>
+    <dialog id="editModal" class="modal">
+        <div class="modal-box w-11/12 max-w-3xl">
+            <form id="editForm" method="dialog">
+                <h3 class="font-bold text-lg mb-4">编辑违纪信息</h3>
+
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">编号</span>
                         </label>
-                        <input type="text" id="editId" class="input input-bordered" disabled/>
+                        <input type="text" id="editId" class="input input-bordered input-sm" disabled/>
                     </div>
+
                     <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">处理 by</span>
-                    </label>
-                    <input type="text" id="byteacher" class="input input-bordered" readonly/>
-                </div>
+                        <label class="label">
+                            <span class="label-text">处理 by</span>
+                        </label>
+                        <input type="text" id="byteacher" class="input input-bordered input-sm" readonly/>
+                    </div>
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">姓名</span>
                         </label>
-                        <input type="text" id="editName" class="input input-bordered" required />
+                        <input type="text" id="editName" class="input input-bordered input-sm" required />
                     </div>
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">系部</span>
                         </label>
-                        <input type="text" id="editDepartment" class="input input-bordered" required/>
+                        <input type="text" id="editDepartment" class="input input-bordered input-sm" required/>
                     </div>
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">班级</span>
                         </label>
-                        <input type="text" id="editClass" class="input input-bordered" required/>
+                        <input type="text" id="editClass" class="input input-bordered input-sm" required/>
                     </div>
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">等级</span>
                         </label>
-                        <select id="editLevel" class="select select-bordered w-full" required>
+                        <select id="editLevel" class="select select-bordered select-sm w-full" required>
                             <option value="警告">警告</option>
                             <option value="严重警告">严重警告</option>
                             <option value="记过">记过</option>
@@ -96,19 +105,20 @@
                             <option value="开除学籍">开除学籍</option>
                         </select>
                     </div>
+
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">日期</span>
                         </label>
-                        <input type="date" id="editDate" class="input input-bordered" required/>
+                        <input type="date" id="editDate" class="input input-bordered input-sm" required/>
                     </div>
 
                     <div class="form-control">
                         <label class="label">
                         <span class="label-text">类型</span>
                         </label>
-                    <select id="editType" class="select select-bordered w-full" required>
-                        <option value="手机管理">手机管理</option>
+                        <select id="editType" class="select select-bordered select-sm w-full" required>
+                            <option value="手机管理">手机管理</option>
                             <option value="课堂纪律">课堂纪律</option>
                             <option value="男女关系">男女关系</option>
                             <option value="同学关系">同学关系</option>
@@ -120,28 +130,30 @@
                         </select>
                     </div>
 
-                    <div class="form-control">
+                    <div class="form-control md:col-span-2">
                         <label class="label">
                         <span class="label-text">原因</span>
                         </label>
-                        <textarea  id="editReason" class="textarea textarea-bordered"></textarea>
+                        <textarea id="editReason" class="textarea textarea-bordered textarea-sm"></textarea>
                     </div>
-                    
-                    <div class="form-control">
+
+                    <div class="form-control md:col-span-2">
                         <label class="label">
                         <span class="label-text">撤销信息</span>
                         </label>
-                        <input type="text" id="editRevoke" class="input input-bordered"/>
+                        <input type="text" id="editRevoke" class="input input-bordered input-sm"/>
                     </div>
 
-                    <div class="modal-action">
-                        <button class="btn" type="button" onclick="fillRevoke()">撤销</button>
-                        <button class="btn" type="button" onclick="document.getElementById('editModal').close()">关闭</button>
-                        <button class="btn btn-primary" type="submit">提交</button>
-                    </div>
-                </form>
-            </div>
-        </dialog>
+                </div>
+
+                <div class="modal-action">
+                    <button class="btn btn-sm" type="button" onclick="fillRevoke()">撤销</button>
+                    <button class="btn btn-sm" type="button" onclick="document.getElementById('editModal').close()">关闭</button>
+                    <button class="btn btn-sm btn-primary" type="submit">提交</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
     </div>
     <div id="errorMessage" class="alert alert-error mt-4" style="display:none;"></div>
     {% endblock %}

@@ -8,8 +8,6 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from flask_session import Session
 import pandas as pd
 from sqlalchemy.pool import  reset_none
-from pyecharts import options as opts
-from pyecharts.charts import Calendar
 import random
 import datetime
 from io import BytesIO
@@ -19,9 +17,18 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.enum.text import WD_LINE_SPACING
 
+# 数据绘图
+from pyecharts import options as opts
+from pyecharts.charts import Bar
+
 from config import (
     SECRET_KEY, USER_ROLES, DEPARTMENTS,
-    DATA_FILE, BASE_DIR, ARCHIVE_CSV, UPLOAD_FOLDER, ALLOWED_UPLOAD_EXTENSIONS, WEIJI_TYPES
+    BASE_DIR, ARCHIVE_CSV, UPLOAD_FOLDER, ALLOWED_UPLOAD_EXTENSIONS, WEIJI_TYPES,
+    DATA_FILE_JINGYI, DATA_FILE_ZHIZAO  # 经艺系 / 制造系 违纪表格路径
+)
+
+from utils.common import (
+    load_data, load_session
 )
 
 from utils.decorators import required_role, check_redis_session
@@ -51,23 +58,6 @@ logger = app.logger
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-def load_session() -> dict:
-    '''
-    加载session中身份的相关信息, 用于路由中处理相关逻辑
-    '''
-    user_role = session.get('role')
-    user_department = session.get('department')
-    user_class = session.get('class')
-    user_name = session.get('username')
-    user_truename = session.get('truename')
-    response_data = {
-        "user_role": user_role,
-        "user_department": user_department,
-        "user_class": user_class,
-        "user_name": user_name,
-        "user_truename": user_truename
-    }
-    return response_data
 
 @app.after_request
 def add_header(response):
@@ -112,6 +102,10 @@ def login():
 
         if username in user:
             if password == user[username]['password']:  # 使用加密验证
+
+                # 加载登录用户信息至 session
+                # 用户名 / 角色 / 系部 / 班级 / 姓名
+
                 session['logged_in'] = True
                 session['username'] = user[username]['username']
                 session['role'] = user[username]['role']
@@ -202,24 +196,13 @@ def home():
 @required_role('super_admin')
 @check_redis_session  # 重启后重定向login
 def weiji_show():
-    # load session
+    # 加载 session
     response_data = load_session()
 
     try:
-        # load data
-        data = pd.read_csv('data/weiji.csv', encoding = "utf-8")
-        data = data.fillna('')  # 将所有的 NaN 填充为空字符串
-        
-        # 根据权限及系部划分数据
+        # 加载数据
         department = response_data['user_department']
-        if department == '经艺系':
-            data = data[data['系部'] == '经艺系']
-        elif department == '智能制造系':
-            data = data[data['系部'] == '智能制造系']
-        elif department == '高职系':
-            pass
-        else:
-            data = data
+        data = load_data(department)
 
         # 获取搜索关键词
         search_term = request.args.get('search', '').strip().lower()
@@ -272,10 +255,17 @@ def weiji_show():
 @app.route('/get_record', methods=['GET'])
 @check_redis_session # 重启后重定向login
 def get_record():
+
+    # 获取选择的数据ID
     record_id = request.args.get('record_id')
-    # load data
-    data = pd.read_csv('data/weiji.csv') # 假设这里读取成功
-    data = data.fillna('') # 将所有的 NaN 填充为空字符串
+
+    # 加载session
+    response_data = load_session()
+    
+    # 加载数据
+    department = response_data['user_department']
+    data = load_data(department)
+
     try:
         record_id = int(record_id) # 转换id为int类型
         # 关键：这里通过 iloc[:, 0] 比较 ID，然后取 .values.tolist()[0]
@@ -301,8 +291,14 @@ def update_record():
     record_id = request.args.get('record_id')
     updated_data = request.get_json()
     logger.debug(f"接收到id={record_id}的更新请求，数据为：{updated_data}")
-    # load data
-    data = pd.read_csv('data/weiji.csv')
+
+    # 加载session
+    response_data = load_session()
+    
+    # 加载数据
+    department = response_data['user_department']
+    data = load_data(department)
+
     cols = data.columns
     try:
         record_id = int(record_id)  # 转换id为int类型
@@ -327,8 +323,13 @@ def update_record():
             updated_data['revoke'],
             updated_data['byteacher'],
         ]
-        # 保存修改
-        data.to_csv('data/weiji.csv', index=False)
+        # 根据系部修改数据表
+        if department == '经艺系':
+            file = DATA_FILE_JINGYI
+        elif department == '智能制造系':
+            file = DATA_FILE_ZHIZAO
+        data.to_csv(file, index=False)
+
         logger.info(f"id={record_id}的数据更新成功，更新后的数据为：{updated_data}")
         return jsonify(message='修改成功')
     except (IndexError, TypeError):
@@ -341,8 +342,14 @@ def update_record():
 def delete_record():
     record_id = request.args.get('record_id')
     logger.debug(f"接收到id={record_id}的删除请求")
-    # load data
-    data = pd.read_csv('data/weiji.csv')
+
+    # 加载session
+    response_data = load_session()
+    
+    # 加载数据
+    department = response_data['user_department']
+    data = load_data(department)
+
     try:
         record_id = int(record_id)  # 转换id为int类型
         
@@ -355,7 +362,11 @@ def delete_record():
         
         # 保存修改
         data = data[data.iloc[:, 0] != record_id]
-        data.to_csv('data/weiji.csv', index=False)
+        if department == '经艺系':
+            file = DATA_FILE_JINGYI
+        elif department == '智能制造系':
+            file = DATA_FILE_ZHIZAO
+        data.to_csv(file, index=False)
         logger.info(f"id={record_id}的数据删除成功")
         return jsonify(message='删除成功')
     except (IndexError, TypeError):
@@ -374,7 +385,10 @@ def weiji_add():
     if request.method == 'POST':
         # --- POST 处理逻辑保持不变 ---
         try:
-            df = pd.read_csv(DATA_FILE) # 使用 DATA_FILE
+            # 加载数据
+            department = response_data['user_department']
+            df = load_data(department)
+
             new_id = df.iloc[:, 0].max() + 1 if not df.empty and pd.api.types.is_numeric_dtype(df.iloc[:, 0]) else 1
 
             new_record = {
@@ -405,7 +419,11 @@ def weiji_add():
             new_row_df = pd.DataFrame([new_row_data], columns=df.columns)
 
             df = pd.concat([df, new_row_df], ignore_index=True)
-            df.to_csv(DATA_FILE, index=False, encoding='utf-8') # 指定编码
+            if department == '经艺系':
+                file = DATA_FILE_JINGYI
+            elif department == '智能制造系':
+                file = DATA_FILE_ZHIZAO
+            df.to_csv(file, index=False) # 指定编码
 
             # flash('记录添加成功!', 'success') # 可以用 flash 消息提示
             return redirect(url_for('weiji_show'))
@@ -439,14 +457,18 @@ def get_student_records():
         return jsonify({'records': [], 'message': '请输入姓名和班级进行查询'}), 400 # 返回 400 Bad Request
 
     try:
-        df = pd.read_csv('data/weiji.csv') # 使用 config.py 中的 DATA_FILE
-        df = df.fillna('') # 处理 NaN
+        # 加载session
+        response_data = load_session()
+        
+        # 加载数据
+        department = response_data['user_department']
+        data = load_data(department)
 
         # 筛选记录 - 确保比较的是字符串类型（如果班级是数字，可能需要转换）
         # 假设 CSV 中的 '姓名' 和 '班级' 列都是字符串
-        filtered_records = df[
-            (df['姓名'] == student_name) &
-            (df['班级'] == int(class_name)) # 显式转换为字符串以匹配
+        filtered_records = data[
+            (data['姓名'] == student_name) &
+            (data['班级'] == int(class_name)) # 显式转换为字符串以匹配
         ]
 
         # 按日期降序排序，最新的记录在前面
@@ -459,10 +481,10 @@ def get_student_records():
         return jsonify({'records': records_list})
 
     except FileNotFoundError:
-        logger.error(f"数据文件未找到: {DATA_FILE}")
+        logger.error(f"数据文件未找到:")
         return jsonify({'error': '数据文件未找到'}), 500
     except pd.errors.EmptyDataError:
-         logger.error(f"数据文件为空: {DATA_FILE}")
+         logger.error(f"数据文件为空:")
          return jsonify({'records': []}) # 文件为空也返回空列表
     except Exception as e:
         logger.exception(f"查询学生 {student_name} 记录时发生错误") # 记录完整错误信息
@@ -476,7 +498,7 @@ def data_analysis():
     数据分析路由，读取 weiji.csv 并统计数据，渲染到 data_analysis.html。
     """
     response_data = load_session()
-    data = pd.read_csv('data/weiji.csv', encoding = 'utf-8')
+    data = pd.read_csv('data/weiji_jingyixi.csv')
 
     # 违纪违规总数
     total_count = len(data)
@@ -512,6 +534,20 @@ def data_analysis():
     return render_template('data_analysis.html', **response_data)
 
 
+@app.route('/data_plot')
+@check_redis_session
+def data_plot():
+    response_data = load_session()
+    data = {
+    "labels": ["技术部", "市场部", "人事部", "财务部"],
+    "values": [45, 30, 25, 20]
+    }
+    response_data['data'] = data
+    return render_template('data_plot.html', **response_data)
+
+    
+
+
 @app.route('/download_disposition/<int:record_id>')
 @check_redis_session  # 重启后重定向login
 def download_disposition(record_id):
@@ -520,9 +556,14 @@ def download_disposition(record_id):
     """
     from docx.shared import Pt, Cm
     from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-    # load data
-    data = pd.read_csv('data/weiji.csv')
-    data = data.fillna('')  # 将所有的 NaN 填充为空字符串
+
+    # 加载session
+    response_data = load_session()
+    
+    # 加载数据
+    department = response_data['user_department']
+    data = load_data(department)
+
     date = datetime.datetime.now().strftime("%Y年%m月%d日")
 
     try:
@@ -629,9 +670,10 @@ def class_weiji_show():
     response_data = load_session()
 
     try:
-        # load data
-        data = pd.read_csv('data/weiji.csv')
-        data = data.fillna('')  # 将所有的 NaN 填充为空字符串
+        # 加载数据
+        department = response_data['user_department']
+        data = load_data(department)
+
         # data['班级'] = data['班级'].astype(int)
         # data = data[data['班级'] == int(session.get('class'))]
         class_value = session.get('class')
@@ -686,6 +728,7 @@ def class_weiji_show():
         return jsonify(error="服务器内部错误，请稍后再试。"), 500  # 返回 JSON 错误响应，并设置 HTTP 状态码
 
 
+# 测试markdown渲染功能
 @app.route('/test', methods=['GET'])
 @check_redis_session
 def test():
@@ -700,87 +743,7 @@ def test():
 
     # 渲染模板并将 HTML 内容传递给它
     return render_template('test.html', **response_data)
-    
-
-# --- 新增路由 ---
-@app.route('/data_analysis_plot_data') # 专门用于提供绘图数据的 API 路由
-@check_redis_session
-def data_analysis_plot_data():
-    # --- 1. 定义日期范围 ---
-    # 注意：Pandas 处理日期更方便，我们将 'YYYY.M' 转换为 Pandas 可识别的格式
-    # 例如: '2025.2' 对应 '2025-02-01' 到 '2025-02-28/29'
-    # '2025.7' 对应 '2025-07-01' 到 '2025-07-31'
-    # 为了准确筛选，我们使用月份的开始和下个月的开始作为边界
-    try:
-        start_date_str = "2025-02-01"
-        end_date_str = "2025-08-01" # 结束日期用 8 月 1 日，筛选时用 < end_date
-
-        start_date = pd.to_datetime(start_date_str)
-        end_date = pd.to_datetime(end_date_str)
-    except ValueError:
-        logger.error("无效的日期范围格式")
-        return jsonify(error="无效的日期范围格式"), 400
-
-    # --- 2. 读取和处理数据 ---
-    try:
-        df = pd.read_csv(DATA_FILE, encoding='utf-8')
-        df = df.fillna({'类型': '未分类'}) # 将 '类型' 列的 NaN 填充为 '未分类' 或 ''
-
-        # 转换 '日期' 列为 datetime 对象，无法转换的设为 NaT
-        # 需要处理 'YYYY/M/D' 和 'YYYY-MM-DD' 等可能的格式
-        df['日期'] = pd.to_datetime(df['日期'], errors='coerce')
-
-        # 删除日期无效的行
-        df = df.dropna(subset=['日期'])
-
-        # --- 3. 筛选日期范围内的数据 ---
-        # 使用 >= start_date 和 < end_date 来包含整个 7 月
-        filtered_df = df[(df['日期'] >= start_date) & (df['日期'] < end_date)].copy() # 使用 .copy() 避免 SettingWithCopyWarning
-
-        # 如果筛选后没有数据
-        if filtered_df.empty:
-            logger.info(f"在日期范围 {start_date_str} 到 {end_date_str} 内没有找到数据")
-            return jsonify(categories=[], values=[], message="指定日期范围内无数据")
-
-        # --- 4. 统计各类型的处分数量 ---
-        # 使用 value_counts() 统计 '类型' 列中每个值的出现次数
-        type_counts = filtered_df['类型'].value_counts()
-
-        # 准备 ECharts 需要的数据格式
-        categories = type_counts.index.tolist() # 类型名称列表 (X 轴)
-        values = type_counts.values.tolist()     # 对应的数量列表 (Y 轴)
-
-        # --- 5. 返回 JSON 数据 ---
-        logger.info(f"成功为日期范围 {start_date_str} 到 {end_date_str} 生成图表数据")
-        return jsonify(
-            categories=categories,
-            values=values,
-            startDate=start_date.strftime('%Y-%m-%d'), # 将实际使用的开始日期传给前端
-            endDate=(end_date - pd.Timedelta(days=1)).strftime('%Y-%m-%d') # 将实际范围的结束日期传给前端
-        )
-
-    except FileNotFoundError:
-        logger.error(f"数据文件未找到: {DATA_FILE}")
-        return jsonify(error="数据文件未找到"), 500
-    except pd.errors.EmptyDataError:
-        logger.error(f"数据文件为空: {DATA_FILE}")
-        return jsonify(error="数据文件为空"), 500
-    except KeyError as e:
-         logger.error(f"CSV 文件缺少必要的列: {e}")
-         return jsonify(error=f"数据文件格式错误，缺少列: {e}"), 500
-    except Exception as e:
-        logger.exception("在 /data_analysis_plot_data 路由中发生错误")
-        return jsonify(error="处理数据时发生服务器内部错误"), 500
-
-# --- 新增渲染页面的路由 ---
-@app.route('/data_analysis_plot')
-@check_redis_session
-def data_analysis_plot_page():
-    """渲染包含 ECharts 图表的页面"""
-    response_data = load_session()
-    # 你可以在这里传递其他需要渲染到模板的数据
-    return render_template('data_analysis_plot.html', **response_data)
-
+   
 
 if __name__ == '__main__':
     app.run(debug=True)

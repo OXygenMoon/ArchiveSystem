@@ -41,14 +41,6 @@
                 <input type="text" name="class" id="student-class" class="input input-bordered" required>
             </div>
 
-            <!-- 日期 -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">违纪日期</span>
-                </label>
-                <input type="date" name="date" class="input input-bordered" required value="{{ today }}">
-            </div>
-
             <!-- 等级 -->
             <div class="form-control">
                 <label class="label">
@@ -60,6 +52,14 @@
                     <option value="{{ level }}" {% if level == "警告" %}selected{% endif %}>{{ level }}</option>
                     {% endfor %}
                 </select>
+            </div>
+
+            <!-- 日期 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">违纪日期</span>
+                </label>
+                <input type="date" name="date" class="input input-bordered" required value="{{ today }}">
             </div>
 
             <!-- 类型 -->
