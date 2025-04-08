@@ -19,7 +19,7 @@
     <!-- 引入自定义 CSS -->
     <link href="../static/main.css" rel="stylesheet" />
 
-    <!-- <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script> -->
+    <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
   </head>
 
   <body>
@@ -196,7 +196,8 @@
     <main>
       <body>
         <div class="main-content p-4">
-          <!-- 主体内容 -->
+          <div id="main" style="width: 800px; height: 500px; margin: 20px auto;"></div>
+            <!-- 主体内容 -->
             {% block content %}
             {% endblock %}
         </div>

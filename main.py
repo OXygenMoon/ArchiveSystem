@@ -24,6 +24,7 @@ from pyecharts.charts import Bar
 from config import (
     SECRET_KEY, USER_ROLES, DEPARTMENTS,
     BASE_DIR, ARCHIVE_CSV, UPLOAD_FOLDER, ALLOWED_UPLOAD_EXTENSIONS, WEIJI_TYPES,
+    WEIJI_LEVELS,  # 违纪等级列表
     DATA_FILE_JINGYI, DATA_FILE_ZHIZAO  # 经艺系 / 制造系 违纪表格路径
 )
 
@@ -498,14 +499,17 @@ def data_analysis():
     数据分析路由，读取 weiji.csv 并统计数据，渲染到 data_analysis.html。
     """
     response_data = load_session()
-    data = pd.read_csv('data/weiji_jingyixi.csv')
+    data_jyx = pd.read_csv('data/weiji_jingyixi.csv')
+    data_zzx = pd.read_csv('data/weiji_zhizaoxi.csv')
+    data = pd.concat([data_jyx, data_zzx])
 
     # 违纪违规总数
     total_count = len(data)
 
     # 经艺系违纪违规总数
-    jingyi_count = len(data[data['系部'] == '经艺系'])
-
+    jingyixi_count = len(data[data['系部'] == '经艺系'])
+    zhizaoxi_count = len(data[data['系部'] == '智能制造系'])
+    
     # 已撤销人数
     revoked_count = len(data[data['撤销信息'].str.contains('已撤销', na=False)])
 
@@ -514,38 +518,76 @@ def data_analysis():
 
     # 12个月
     year = '2025'
-    months_format_1 = [year + '/'  + str(n) + '/' for n in range(1, 13)]
-    months_format_2 = [year + ('-' if len(str(n)) == 2 else '-0') + str(n) + '-' for n in range(1, 13)]
-    month_count_1 = [len(data[data['日期'].str.contains(month1, na=False)]) for month1 in months_format_1]
-    month_count_2 = [len(data[data['日期'].str.contains(month2, na=False)]) for month2 in months_format_2]
-    new_month_count = []
-    for i in range(0, 12):
-        new_month_count.append(month_count_1[i] + month_count_2[i])
+    months_format = [year + '/'  + str(n) + '/' for n in range(1, 13)]
+    month_count = [len(data[data['日期'].str.contains(month, na=False)]) for month in months_format]
 
     response_data.update({
         'total_count': total_count,
-        'jingyi_count': jingyi_count,
+        'jingyixi_count': jingyixi_count,
+        'zhizaoxi_count': zhizaoxi_count,
         'revoked_count': revoked_count,
         'not_revoked_count': not_revoked_count,
-        'new_month_count': new_month_count,
+        'new_month_count': month_count,
         'year': year
     })
 
     return render_template('data_analysis.html', **response_data)
 
 
-@app.route('/data_plot')
+@app.route('/data_plot_by_cate')
 @check_redis_session
-def data_plot():
+def data_plot_by_cate():
+    labels = WEIJI_TYPES
+    def count_type(labels, data_file) -> list:
+        '''
+        内置函数, 加载labels, 计算不同文件里的各标签数量, 返回values
+        '''
+        counts = []
+        data = pd.read_csv(data_file)
+        for label in labels:
+            count = len(data[data['类型'] == label])
+            counts.append(count)
+        return counts
+            
+    jingyixi_counts = count_type(labels, 'data/weiji_jingyixi.csv')
+    zhizaoxi_counts = count_type(labels, 'data/weiji_zhizaoxi.csv')
+    
     response_data = load_session()
     data = {
-    "labels": ["技术部", "市场部", "人事部", "财务部"],
-    "values": [45, 30, 25, 20]
+    "labels": labels,
+    "values_jingyixi": jingyixi_counts,
+    "values_zhizaoxi": zhizaoxi_counts
     }
     response_data['data'] = data
-    return render_template('data_plot.html', **response_data)
+    return render_template('data_plot_by_cate.html', **response_data)
 
+
+@app.route('/data_plot_by_level')
+@check_redis_session
+def data_plot_by_level():
+    labels = WEIJI_LEVELS[:-1]  # 去除开除学籍
+    def count_type(labels, data_file) -> list:
+        '''
+        内置函数, 加载labels, 计算不同文件里的各标签数量, 返回values
+        '''
+        counts = []
+        data = pd.read_csv(data_file)
+        for label in labels:
+            count = len(data[data['处分等级'] == label])
+            counts.append(count)
+        return counts
+            
+    jingyixi_counts = count_type(labels, 'data/weiji_jingyixi.csv')
+    zhizaoxi_counts = count_type(labels, 'data/weiji_zhizaoxi.csv')
     
+    response_data = load_session()
+    data = {
+    "labels": labels,
+    "values_jingyixi": jingyixi_counts,
+    "values_zhizaoxi": zhizaoxi_counts
+    }
+    response_data['data'] = data
+    return render_template('data_plot_by_level.html', **response_data)
 
 
 @app.route('/download_disposition/<int:record_id>')

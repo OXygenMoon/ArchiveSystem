@@ -40,6 +40,16 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 # 允许上传的文件拓展名
 ALLOWED_UPLOAD_EXTENSIONS = {'csv', 'xlsx'}
 
+# 处分等级
+WEIJI_LEVELS = [
+    '警告',
+    '严重警告',
+    '记过',
+    '留校察看',
+    '开除学籍'
+]
+
+
 # 处分类型
 WEIJI_TYPES = [
     '手机管理',

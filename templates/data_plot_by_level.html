@@ -1,0 +1,89 @@
+{% extends "layout_data.html" %}
+
+{% block title %}数据统计 - 等级统计{% endblock %}
+
+{% block content %}
+  <script type="text/javascript">
+    // 初始化图表
+    var myChart = echarts.init(document.getElementById('main'));
+
+    // 假设这是从 Flask 模板注入的数据 (为了示例，这里直接定义)
+    // 确保 Flask 传递的 data 包含 labels, values_jingyixi, values_zhizaoxi
+    var data = {{ data|tojson }}; // 在你的实际项目中取消注释这行
+
+    // 配置选项
+    var option = {
+        title: {
+            text: '等级统计' // 可以修改标题
+        },
+        tooltip: { // <-- 添加 tooltip 配置
+            trigger: 'axis', // 坐标轴触发，主要在柱状图、折线图等会使用类目轴的图表中使用
+            axisPointer: { // 坐标轴指示器配置项
+                type: 'shadow' // 默认为直线，可选为：'line' | 'shadow'
+            }
+        },
+        legend: { // <-- 添加 legend 配置
+            data: ['经艺系', '智能制造系'] // 需要与 series 中的 name 对应
+        },
+        grid: { // <-- 修改或添加 grid 配置
+          left: '10%',       // 左边距
+          right: '10%',      // 右边距
+          top: '15%',       // 上边距 (给标题和图例留出空间)
+          bottom: '10%',     // 下边距 (给 x 轴标签留空间，特别是旋转时)
+          containLabel: true // grid 区域是否包含坐标轴的刻度标签，防止标签溢出
+      },
+        xAxis: {
+            type: 'category',
+            data: data.labels,
+            axisLabel: {
+                interval: 0 // 强制显示所有标签
+                // rotate: 30 // 如果标签名过长可以考虑旋转
+            },
+            axisTick: { // 确保刻度线与标签对齐
+                alignWithLabel: true
+            }
+        },
+        yAxis: {
+            type: 'value'
+        },
+        series: [ // <-- series 变成数组，包含两个系列
+            {
+                name: '经艺系', // 系列名称，需与 legend.data 对应
+                type: 'bar',
+                // barWidth: '40%', // 可以设置柱子宽度，防止太挤或太宽
+                data: data.values_jingyixi, // 精益系数据
+                label: { // 精益系柱顶标签
+                    show: true,
+                    position: 'top'
+                },
+                // showBackground: true, // 可以为每个系列单独设置背景
+                // backgroundStyle: {
+                //     color: 'rgba(180, 180, 180, 0.1)'
+                // }
+            },
+            {
+                name: '智能制造系', // 系列名称，需与 legend.data 对应
+                type: 'bar',
+                // barWidth: '40%',
+                data: data.values_zhizaoxi, // 制造系数据
+                label: { // 制造系柱顶标签
+                    show: true,
+                    position: 'top'
+                },
+                // showBackground: true,
+                // backgroundStyle: {
+                //     color: 'rgba(220, 220, 220, 0.1)'
+                // }
+            }
+        ]
+    };
+
+    // 使用配置项显示图表
+    myChart.setOption(option);
+
+    // 可选：添加窗口大小改变时图表自适应的功能
+    window.addEventListener('resize', function() {
+        myChart.resize();
+    });
+  </script>
+{% endblock %}
