@@ -8,18 +8,44 @@
 
     {% include '_flashes.html' %} <!-- 包含 flash 消息显示模板 -->
 
-    <form method="POST" class="max-w-2xl w-full"> {# 添加 w-full 使其占满网格宽度 #}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- 姓名 -->
+    <form method="POST" class="max-w-3xl w-full"> {# 可以适当增加 max-w-* 以适应三列布局 #}
+        {# 主要表单字段网格，改为 md:grid-cols-3 #}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+            <!-- Row 1: 姓名 -->
             <div class="form-control">
                 <label class="label">
                     <span class="label-text">姓名</span>
                 </label>
-                {# 添加 id 以便 JS 选择 #}
                 <input type="text" name="name" id="student-name" class="input input-bordered" required>
             </div>
 
-            <!-- 系部 -->
+            <!-- Row 1: 班级 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">班级</span>
+                </label>
+                <input type="text" name="class" id="student-class" class="input input-bordered" required>
+            </div>
+
+            <!-- Row 1: 经手人 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">经手人</span> {# 更改标签文本为“经手人” #}
+                </label>
+                {# 确保 session['username'] 存在且正确 #}
+                <input type="text" name="byteacher" class="input input-bordered" value="{{ session.get('username', '未知') }}" disabled>
+            </div>
+
+            <!-- Row 2: 违纪日期 -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">违纪日期</span>
+                </label>
+                <input type="date" name="date" class="input input-bordered" required value="{{ today }}">
+            </div>
+
+            <!-- Row 2: 系部 -->
             <div class="form-control">
                 <label class="label">
                     <span class="label-text">系部</span>
@@ -32,16 +58,7 @@
                 </select>
             </div>
 
-            <!-- 班级 -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">班级</span>
-                </label>
-                 {# 添加 id 以便 JS 选择 #}
-                <input type="text" name="class" id="student-class" class="input input-bordered" required>
-            </div>
-
-            <!-- 等级 -->
+            <!-- Row 2: 违纪等级 -->
             <div class="form-control">
                 <label class="label">
                     <span class="label-text">违纪等级</span>
@@ -49,60 +66,50 @@
                 <select name="level" class="select select-bordered" required>
                     <option value="">请选择等级</option>
                     {% for level in levels %}
-                    <option value="{{ level }}" {% if level == "警告" %}selected{% endif %}>{{ level }}</option>
+                    <option value="{{ level }}" {% if level == "警告" %} selected {% endif %}>{{ level }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- 日期 -->
-            <div class="form-control">
+            <!-- Row 3: 违纪类型 (跨越所有列) -->
+            <div class="form-control md:col-span-3"> {# 让类型区域跨越三列 #}
                 <label class="label">
-                    <span class="label-text">违纪日期</span>
+                    <span class="label-text">违纪类型 (可多选)</span>
                 </label>
-                <input type="date" name="date" class="input input-bordered" required value="{{ today }}">
-            </div>
-
-            <!-- 类型 -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">违纪类型</span>
-                </label>
-                <select name="type" class="select select-bordered" required>
-                    <option value="">请选择类型</option>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 border border-base-300 rounded-lg"> {# 调整内部网格以适应更多空间 #}
                     {% for weiji_type in weiji_types %}
-                    <option value="{{ weiji_type }}">{{ weiji_type }}</option>
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-2">
+                            <input type="checkbox" name="type" value="{{ weiji_type }}" class="checkbox checkbox-accent checkbox-sm" />
+                            <span class="label-text">{{ weiji_type }}</span>
+                        </label>
+                    </div>
                     {% endfor %}
-                </select>
+                </div>
+                {# 隐藏 input 仍然有用 #}
+                <input type="hidden" name="type" value="">
             </div>
-        </div>
-            <!-- 经手人
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">处理 by</span>
-                </label>
-                <input type="text" name="byteacher" class="input input-bordered" value="{{ session['username'] }}" readonly>
-            </div>
-        </div> -->
+        </div> {# 结束主要字段的网格布局 #}
 
-        <!-- 原因 -->
-        <div class="form-control mt-4">
+        <!-- Row 4: 原因 (单独的 div, 占据全部宽度) -->
+        <div class="form-control mt-4"> {# 使用 mt-4 添加与上方网格的间距 #}
             <label class="label">
                 <span class="label-text">违纪原因</span>
             </label>
             <textarea name="reason" class="textarea textarea-bordered h-32" required></textarea>
         </div>
 
-        <div class="mt-6 flex justify-center gap-2">
+        <!-- Row 5: 按钮 (单独的 div) -->
+        <div class="mt-6 flex justify-center gap-4"> {# 增加 gap 让按钮间距更大 #}
             <a href="{{ url_for('weiji_show') }}" class="btn bg-secondary">查看记录</a>
             <button type="submit" class="btn btn-primary">提交记录</button>
         </div>
     </form>
 
-    <!-- 新增：用于显示过往记录的区域 -->
-    <div id="past-records-container" class="mt-8 max-w-2xl w-full bg-base-200 p-4 rounded-lg shadow">
+    <!-- 过往记录查询区域保持不变 -->
+    <div id="past-records-container" class="mt-8 max-w-3xl w-full bg-base-200 p-4 rounded-lg shadow"> {# 也可以调整 max-width #}
         <h3 class="text-lg font-semibold mb-2 text-center">过往记录查询</h3>
         <div id="records-output" class="text-sm">
-            <!-- 记录将通过 JavaScript 动态加载到这里 -->
             <p class="text-gray-500 text-center">请输入完整的姓名和班级以查询过往记录。</p>
         </div>
     </div>
@@ -110,17 +117,17 @@
 </div>
 {% endblock %}
 
-{# 添加 JavaScript 块 #}
+{# JavaScript 块保持不变 #}
 {% block scripts %}
-{{ super() }} {# 如果 layout.html 有 scripts 块，这会包含它们 #}
+{{ super() }}
 <script>
+    // ... (你的 JavaScript 代码保持不变) ...
     document.addEventListener('DOMContentLoaded', () => {
         const nameInput = document.getElementById('student-name');
         const classInput = document.getElementById('student-class');
         const recordsOutput = document.getElementById('records-output');
         const recordsContainer = document.getElementById('past-records-container');
 
-        // 创建一个 debounce 函数防止过于频繁的请求 (可选但推荐)
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -137,21 +144,18 @@
             const name = nameInput.value.trim();
             const className = classInput.value.trim();
 
-            // 只有当姓名和班级都输入时才查询
             if (name && className) {
-                recordsOutput.innerHTML = '<p class="text-info text-center animate-pulse">正在查询...</p>'; // 显示加载状态
+                recordsOutput.innerHTML = '<p class="text-info text-center animate-pulse">正在查询...</p>';
 
                 try {
-                    // 使用 url_for 生成后端 API 的 URL
                     const url = new URL("{{ url_for('get_student_records') }}", window.location.origin);
                     url.searchParams.append('name', name);
-                    url.searchParams.append('class_name', className); // 确保参数名与后端一致
+                    url.searchParams.append('class_name', className);
 
                     const response = await fetch(url);
                     const data = await response.json();
 
                     if (!response.ok) {
-                        // 显示后端返回的错误信息（如果有）
                         recordsOutput.innerHTML = `<p class="text-error text-center">查询失败: ${data.message || data.error || response.statusText}</p>`;
                         return;
                     }
@@ -159,12 +163,11 @@
                     if (data.records && data.records.length > 0) {
                         let html = '<ul class="space-y-2">';
                         data.records.forEach(record => {
-                            // 假设你的 CSV 列名是 '日期', '等级', '原因', '撤销信息'
-                            // 请根据实际 CSV 列名调整 record['列名']
+                            // 请根据你实际后端返回的字段名调整 record['...']
                             const revokeInfo = record['撤销信息'] ? `<span class="text-success ml-2">(已撤销: ${record['撤销信息']})</span>` : '<span class="text-warning ml-2">(未撤销)</span>';
                             html += `
                                 <li class="border-b border-base-300 pb-1">
-                                    <strong>${record['日期']}</strong> - ${record['处分等级']} - ${record['原因']} - ${record['系部']} - ${record['经手人']} ${revokeInfo}
+                                    <strong>${record['日期'] || 'N/A'}</strong> - ${record['处分等级'] || 'N/A'} - ${record['原因'] || 'N/A'} - ${record['系部'] || 'N/A'} - ${record['经手人'] || 'N/A'} ${revokeInfo}
                                 </li>`;
                         });
                         html += '</ul>';
@@ -178,21 +181,51 @@
                     recordsOutput.innerHTML = '<p class="text-error text-center">查询过程中发生错误，请检查网络或联系管理员。</p>';
                 }
             } else {
-                // 如果姓名或班级为空，显示提示信息
                 recordsOutput.innerHTML = '<p class="text-gray-500 text-center">请输入完整的姓名和班级以查询过往记录。</p>';
             }
         };
 
-        // 使用 debounce 包装 fetchRecords，延迟 500ms 执行
         const debouncedFetchRecords = debounce(fetchRecords, 500);
 
-        // 监听两个输入框的 'input' 事件 (实时触发，配合 debounce)
-        // 或者使用 'blur' 事件 (失去焦点时触发)
         nameInput.addEventListener('input', debouncedFetchRecords);
         classInput.addEventListener('input', debouncedFetchRecords);
+    });
 
-        // 也可以在页面加载时检查一次（如果可能从其他地方带入值）
-        // fetchRecords();
+    const form = document.querySelector('form[method="POST"]');
+    const typeCheckboxes = form.querySelectorAll('input[name="type"][type="checkbox"]');
+    const hiddenTypeInput = form.querySelector('input[name="type"][type="hidden"]'); // 获取隐藏的 input
+
+    form.addEventListener('submit', function(event) {
+        let isChecked = false;
+        let hasValue = false; // 检查是否有选中的值
+
+        typeCheckboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                isChecked = true;
+                hasValue = true; // 标记有值被选中
+            }
+        });
+
+        // 如果有复选框被选中，移除隐藏 input 的 name 属性，避免发送空值 ""
+        // 否则，确保隐藏 input 的 name 属性存在，以发送空值（虽然 getlist 会处理，但更明确）
+        // **更新逻辑**: Flask 的 request.form.getlist('type') 会自动处理没有选中任何复选框的情况（返回空列表）。
+        // 因此，隐藏的 input 主要是为了确保 'type' 键总是存在于 form 数据中（即使为空）。
+        // 但对于 getlist 来说，这个隐藏的 input 如果没有被移除，可能会导致 getlist 返回 [''] 而不是 []。
+        // 最好的做法是: 如果没有选中任何复选框，则不提交任何名为 'type' 的数据（或者提交一个特定的空标记，但 getlist 通常不需要）。
+        // 我们可以在提交前移除没有选中的 checkbox，或者依赖后端 getlist 的行为。
+        // 简单的客户端验证：
+        if (!isChecked) {
+             // 如果需要强制至少选一个
+            // alert('请至少选择一个违纪类型！');
+            // event.preventDefault(); // 阻止表单提交
+
+            // 或者，允许不选类型，后端处理空列表
+             console.log("没有选择违纪类型");
+             // 在这种情况下，确保隐藏的 input 不会干扰 getlist
+             // 可以在这里禁用或移除隐藏 input，但更简单的是依赖后端处理空列表
+             // hiddenTypeInput.disabled = true; // 或者 form.removeChild(hiddenTypeInput);
+             // 实际上，让隐藏 input 提交 value="" 然后后端用 getlist 通常是没问题的，getlist 会忽略空字符串。
+        }
     });
 </script>
 {% endblock %}

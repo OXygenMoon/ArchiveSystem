@@ -233,6 +233,7 @@ def weiji_show():
             'totalPages': total_pages,
             'currentPage': page,
             'perPage': per_page,
+            'weiji_types': WEIJI_TYPES,
         })
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -300,6 +301,9 @@ def update_record():
     department = response_data['user_department']
     data = load_data(department)
 
+    selected_types_list = updated_data.get('type', []) # Get the list from JSON, default to empty list
+    types_string = ','.join(selected_types_list)     # Join the list into a comma-separated string
+
     cols = data.columns
     try:
         record_id = int(record_id)  # 转换id为int类型
@@ -319,7 +323,8 @@ def update_record():
             updated_data['className'],
             updated_data['level'],
             updated_data['date'],
-            updated_data['type'],
+            # updated_data['type'],
+            types_string,
             updated_data['reason'],
             updated_data['revoke'],
             updated_data['byteacher'],
@@ -392,13 +397,17 @@ def weiji_add():
 
             new_id = df.iloc[:, 0].max() + 1 if not df.empty and pd.api.types.is_numeric_dtype(df.iloc[:, 0]) else 1
 
+            selected_types = request.form.getlist('type')
+            types_string = ','.join(selected_types) # 如果没有选择，会是空字符串 ''
+
             new_record = {
                 '姓名': request.form['name'],
                 '系部': request.form['department'],
                 '班级': request.form['class'],
                 '等级': request.form['level'],
                 '日期': request.form['date'],
-                '类型': request.form['type'],
+                # '类型': request.form['type'],
+                '类型': types_string,
                 # '经手人': request.form['byteacher'],
                 '原因': request.form['reason'],
             }
@@ -611,11 +620,11 @@ def download_disposition(record_id):
     try:
         record = data[data.iloc[:, 0] == record_id].values.tolist()[0]
         name = record[1]
-        department = record[7]
+        department = record[8]
         className = int(record[2])
         level = record[3]
         date = record[4]
-        reason = record[5]
+        reason = record[6]
         prompt = ''
         if level in ['警告', '严重警告']:
             length = 3

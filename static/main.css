@@ -168,10 +168,10 @@ thead {
 }
 
 .input.input-bordered[readonly] {
-  background-color: #efeae5; /* 浅灰色背景 */
+  background-color: #eeebe6; /* 浅灰色背景 */
   color: #777; /* 深灰色文字 */
   cursor: not-allowed; /* 鼠标悬停时显示禁止符号 */
-  opacity: 0.7; /* 稍微降低透明度，增加视觉暗示 */
+  /* opacity: 0.7; 稍微降低透明度，增加视觉暗示 */
 }
 
 .quote-container {

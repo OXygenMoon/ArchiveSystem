@@ -69,7 +69,7 @@
                         <label class="label">
                             <span class="label-text">处理 by</span>
                         </label>
-                        <input type="text" id="byteacher" class="input input-bordered input-sm" readonly/>
+                        <input type="text" id="byteacher" class="input input-bordered input-sm" disabled/>
                     </div>
 
                     <div class="form-control">
@@ -113,21 +113,26 @@
                         <input type="date" id="editDate" class="input input-bordered input-sm" required/>
                     </div>
 
-                    <div class="form-control">
+                    <!-- 类型 (多选) -->
+                    <div class="form-control md:col-span-2"> {# 让类型区域跨越两列 #}
                         <label class="label">
-                        <span class="label-text">类型</span>
+                            <span class="label-text">违纪类型 (可多选)</span>
                         </label>
-                        <select id="editType" class="select select-bordered select-sm w-full" required>
-                            <option value="手机管理">手机管理</option>
-                            <option value="课堂纪律">课堂纪律</option>
-                            <option value="男女关系">男女关系</option>
-                            <option value="同学关系">同学关系</option>
-                            <option value="寝室违纪">寝室违纪</option>
-                            <option value="抽烟">抽烟</option>
-                            <option value="打架">打架</option>
-                            <option value="出勤">出勤</option>
-                            <option value="其他原因">其他原因</option>
-                        </select>
+                        <div id="editTypeCheckboxesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-base-300 rounded-lg max-h-32 overflow-y-auto"> {# 使用网格布局, 添加滚动条 #}
+                            {% if weiji_types %} {# 确保 weiji_types 存在 #}
+                                {% for weiji_type in weiji_types %}
+                                <div class="form-control">
+                                    <label class="label cursor-pointer justify-start gap-2">
+                                        {# name="type" is crucial for backend processing #}
+                                        <input type="checkbox" name="type" value="{{ weiji_type }}" class="checkbox checkbox-accent checkbox-sm" />
+                                        <span class="label-text text-sm">{{ weiji_type }}</span>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-error col-span-full">无法加载违纪类型选项。</p>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="form-control md:col-span-2">
@@ -488,7 +493,18 @@
                     document.getElementById('editClass').value = data[2];
                     document.getElementById('editLevel').value = data[3];
                     document.getElementById('editDate').value = formatDate(data[4]);
-                    document.getElementById('editType').value = data[5];   // 类型 index 5
+                    // document.getElementById('editType').value = data[5];   // 类型 index 5
+                    // --- Handle multi-select Type checkboxes ---
+                    const savedTypesString = data[5] || ''; // Get the comma-separated string (index 5 is Type)
+                    const savedTypesArray = savedTypesString ? savedTypesString.split(',') : []; // Split into array, handle empty string
+
+                    const typeCheckboxes = editModal.querySelectorAll('#editTypeCheckboxesContainer input[type="checkbox"][name="type"]');
+
+                    typeCheckboxes.forEach(checkbox => {
+                        // Check the box if its value is in the saved array
+                        checkbox.checked = savedTypesArray.includes(checkbox.value);
+                    });
+                    // --- End of Type checkbox handling ---
                     document.getElementById('editReason').value = data[6]; // 原因 index 6
                     document.getElementById('editRevoke').value = data[7]; // 撤销 index 7
 
@@ -502,15 +518,25 @@
 
         // 编辑表单提交处理
         editForm.addEventListener('submit', (event) => {
-            event.preventDefault();
+            event.preventDefault(); // 阻止默认提交行为
+
+            // --- 收集选中的类型复选框的值 ---
+            // 1. 找到所有被选中的类型复选框
+            const checkedTypeCheckboxes = editModal.querySelectorAll('#editTypeCheckboxesContainer input[type="checkbox"][name="type"]:checked');
+            // 2. 从选中的复选框中提取 value 值，组成一个数组
+            const selectedTypesArray = Array.from(checkedTypeCheckboxes).map(cb => cb.value);
+            // --- 类型收集结束 ---
+            // 3. 获取其他表单数据
             const recordId = document.getElementById('editId').value;
+
             const updatedData = {
                 name: document.getElementById('editName').value,
                 department: document.getElementById('editDepartment').value,
                 className: document.getElementById('editClass').value,
                 level: document.getElementById('editLevel').value,
                 date: document.getElementById('editDate').value,
-                type: document.getElementById('editType').value,  // 获取类型的值
+                //type: document.getElementById('editType').value,  // 获取类型的值
+                type: selectedTypesArray,
                 reason: document.getElementById('editReason').value,
                 revoke: document.getElementById('editRevoke').value,
                 byteacher: document.getElementById('byteacher').value,
