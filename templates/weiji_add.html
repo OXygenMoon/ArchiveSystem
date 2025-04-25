@@ -117,17 +117,18 @@
 </div>
 {% endblock %}
 
-{# JavaScript 块保持不变 #}
 {% block scripts %}
 {{ super() }}
 <script>
-    // ... (你的 JavaScript 代码保持不变) ...
     document.addEventListener('DOMContentLoaded', () => {
+        // --- 获取元素 ---
         const nameInput = document.getElementById('student-name');
         const classInput = document.getElementById('student-class');
         const recordsOutput = document.getElementById('records-output');
         const recordsContainer = document.getElementById('past-records-container');
+        const form = document.querySelector('form[method="POST"]'); // 获取 form
 
+        // --- 过往记录查询相关 ---
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -141,29 +142,29 @@
         }
 
         const fetchRecords = async () => {
+            // 检查 nameInput 和 classInput 是否实际存在
+            if (!nameInput || !classInput) {
+                 console.warn("Name or Class input not found for fetching records.");
+                 return;
+            }
             const name = nameInput.value.trim();
             const className = classInput.value.trim();
 
             if (name && className) {
                 recordsOutput.innerHTML = '<p class="text-info text-center animate-pulse">正在查询...</p>';
-
                 try {
                     const url = new URL("{{ url_for('get_student_records') }}", window.location.origin);
                     url.searchParams.append('name', name);
                     url.searchParams.append('class_name', className);
-
                     const response = await fetch(url);
                     const data = await response.json();
-
                     if (!response.ok) {
                         recordsOutput.innerHTML = `<p class="text-error text-center">查询失败: ${data.message || data.error || response.statusText}</p>`;
                         return;
                     }
-
                     if (data.records && data.records.length > 0) {
                         let html = '<ul class="space-y-2">';
                         data.records.forEach(record => {
-                            // 请根据你实际后端返回的字段名调整 record['...']
                             const revokeInfo = record['撤销信息'] ? `<span class="text-success ml-2">(已撤销: ${record['撤销信息']})</span>` : '<span class="text-warning ml-2">(未撤销)</span>';
                             html += `
                                 <li class="border-b border-base-300 pb-1">
@@ -175,7 +176,6 @@
                     } else {
                         recordsOutput.innerHTML = '<p class="text-success text-center">未查询到该学生的过往违纪记录。</p>';
                     }
-
                 } catch (error) {
                     console.error('查询记录时出错:', error);
                     recordsOutput.innerHTML = '<p class="text-error text-center">查询过程中发生错误，请检查网络或联系管理员。</p>';
@@ -187,45 +187,53 @@
 
         const debouncedFetchRecords = debounce(fetchRecords, 500);
 
-        nameInput.addEventListener('input', debouncedFetchRecords);
-        classInput.addEventListener('input', debouncedFetchRecords);
-    });
-
-    const form = document.querySelector('form[method="POST"]');
-    const typeCheckboxes = form.querySelectorAll('input[name="type"][type="checkbox"]');
-    const hiddenTypeInput = form.querySelector('input[name="type"][type="hidden"]'); // 获取隐藏的 input
-
-    form.addEventListener('submit', function(event) {
-        let isChecked = false;
-        let hasValue = false; // 检查是否有选中的值
-
-        typeCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                isChecked = true;
-                hasValue = true; // 标记有值被选中
-            }
-        });
-
-        // 如果有复选框被选中，移除隐藏 input 的 name 属性，避免发送空值 ""
-        // 否则，确保隐藏 input 的 name 属性存在，以发送空值（虽然 getlist 会处理，但更明确）
-        // **更新逻辑**: Flask 的 request.form.getlist('type') 会自动处理没有选中任何复选框的情况（返回空列表）。
-        // 因此，隐藏的 input 主要是为了确保 'type' 键总是存在于 form 数据中（即使为空）。
-        // 但对于 getlist 来说，这个隐藏的 input 如果没有被移除，可能会导致 getlist 返回 [''] 而不是 []。
-        // 最好的做法是: 如果没有选中任何复选框，则不提交任何名为 'type' 的数据（或者提交一个特定的空标记，但 getlist 通常不需要）。
-        // 我们可以在提交前移除没有选中的 checkbox，或者依赖后端 getlist 的行为。
-        // 简单的客户端验证：
-        if (!isChecked) {
-             // 如果需要强制至少选一个
-            // alert('请至少选择一个违纪类型！');
-            // event.preventDefault(); // 阻止表单提交
-
-            // 或者，允许不选类型，后端处理空列表
-             console.log("没有选择违纪类型");
-             // 在这种情况下，确保隐藏的 input 不会干扰 getlist
-             // 可以在这里禁用或移除隐藏 input，但更简单的是依赖后端处理空列表
-             // hiddenTypeInput.disabled = true; // 或者 form.removeChild(hiddenTypeInput);
-             // 实际上，让隐藏 input 提交 value="" 然后后端用 getlist 通常是没问题的，getlist 会忽略空字符串。
+        // 添加监听器前最好也检查元素是否存在
+        if (nameInput) {
+            nameInput.addEventListener('input', debouncedFetchRecords);
+        } else {
+            console.error("Element with ID 'student-name' not found.");
         }
-    });
+        if (classInput) {
+            classInput.addEventListener('input', debouncedFetchRecords);
+        } else {
+             console.error("Element with ID 'student-class' not found.");
+        }
+
+        // --- 表单提交处理 ---
+        // 检查 form 是否存在
+        if (form) {
+            const typeCheckboxes = form.querySelectorAll('input[name="type"][type="checkbox"]');
+            // const hiddenTypeInput = form.querySelector('input[name="type"][type="hidden"]'); // 通常不需要显式处理这个隐藏input
+
+            form.addEventListener('submit', function(event) {
+                let isChecked = false;
+                typeCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        isChecked = true;
+                    }
+                });
+
+                // 这里可以添加客户端验证，例如要求至少选择一个类型
+                // if (!isChecked) {
+                //     alert('请至少选择一个违纪类型！');
+                //     event.preventDefault(); // 阻止表单提交
+                //     return; // 停止执行后续代码
+                // }
+
+                // 注意：你不需要在客户端处理隐藏的 type input。
+                // Flask 的 request.form.getlist('type') 会自动处理复选框：
+                // - 如果至少有一个被选中，它会返回一个包含所有选中值的列表。
+                // - 如果一个都没选中，它会返回一个空列表 `[]`。
+                // 那个隐藏的 <input type="hidden" name="type" value=""> 实际上可能会干扰 getlist，
+                // 导致在没有选中任何框时返回 [''] 而不是 []。
+                // 建议：可以考虑从 HTML 中移除 <input type="hidden" name="type" value="">。
+
+                console.log("Form submit event triggered. Checkbox checked status:", isChecked);
+            });
+        } else {
+            console.error("Form element not found!"); // 如果 form 没找到，在这里输出错误
+        }
+
+    }); // 结束 DOMContentLoaded 监听器
 </script>
 {% endblock %}

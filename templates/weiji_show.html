@@ -118,7 +118,7 @@
                         <label class="label">
                             <span class="label-text">违纪类型 (可多选)</span>
                         </label>
-                        <div id="editTypeCheckboxesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-base-300 rounded-lg max-h-32 overflow-y-auto"> {# 使用网格布局, 添加滚动条 #}
+                        <div id="editTypeCheckboxesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-base-300 rounded-lg">
                             {% if weiji_types %} {# 确保 weiji_types 存在 #}
                                 {% for weiji_type in weiji_types %}
                                 <div class="form-control">

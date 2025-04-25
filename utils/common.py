@@ -31,7 +31,7 @@ def load_data(department):
     '''
     if department == '经艺系':
         data = pd.read_csv(DATA_FILE_JINGYI, encoding = 'utf-8')
-    elif department == '智能制造系':
+    elif department == '制造系':
         data = pd.read_csv(DATA_FILE_ZHIZAO, encoding = 'utf-8')
     elif department == '高职系':
         pass

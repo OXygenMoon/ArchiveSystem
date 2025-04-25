@@ -27,7 +27,7 @@
     "username": "cyk",
     "truename": "陈宇堃老师",
     "password": "123456",
-    "department": "智能制造系",
+    "department": "制造系",
     "role": "super_admin",
     "class": -1
   },
@@ -35,7 +35,7 @@
     "username": "hm",
     "truename": "黄明主任",
     "password": "123456",
-    "department": "智能制造系",
+    "department": "制造系",
     "role": "super_admin",
     "class": -1
   }

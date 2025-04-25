@@ -12,6 +12,7 @@ import random
 import datetime
 from io import BytesIO
 import markdown
+import openpyxl
 
 from docx import Document
 from docx.oxml.ns import qn
@@ -332,7 +333,7 @@ def update_record():
         # 根据系部修改数据表
         if department == '经艺系':
             file = DATA_FILE_JINGYI
-        elif department == '智能制造系':
+        elif department == '制造系':
             file = DATA_FILE_ZHIZAO
         data.to_csv(file, index=False)
 
@@ -370,7 +371,7 @@ def delete_record():
         data = data[data.iloc[:, 0] != record_id]
         if department == '经艺系':
             file = DATA_FILE_JINGYI
-        elif department == '智能制造系':
+        elif department == '制造系':
             file = DATA_FILE_ZHIZAO
         data.to_csv(file, index=False)
         logger.info(f"id={record_id}的数据删除成功")
@@ -398,7 +399,12 @@ def weiji_add():
             new_id = df.iloc[:, 0].max() + 1 if not df.empty and pd.api.types.is_numeric_dtype(df.iloc[:, 0]) else 1
 
             selected_types = request.form.getlist('type')
-            types_string = ','.join(selected_types) # 如果没有选择，会是空字符串 ''
+            if len(selected_types) == 0:
+                types_string = ""
+            elif len(selected_types) == 1:
+                types_string = selected_types[0]
+            else:
+                types_string = ','.join(selected_types) # 如果没有选择，会是空字符串 ''
 
             new_record = {
                 '姓名': request.form['name'],
@@ -431,7 +437,7 @@ def weiji_add():
             df = pd.concat([df, new_row_df], ignore_index=True)
             if department == '经艺系':
                 file = DATA_FILE_JINGYI
-            elif department == '智能制造系':
+            elif department == '制造系':
                 file = DATA_FILE_ZHIZAO
             df.to_csv(file, index=False) # 指定编码
 
@@ -517,7 +523,7 @@ def data_analysis():
 
     # 经艺系违纪违规总数
     jingyixi_count = len(data[data['系部'] == '经艺系'])
-    zhizaoxi_count = len(data[data['系部'] == '智能制造系'])
+    zhizaoxi_count = len(data[data['系部'] == '制造系'])
     
     # 已撤销人数
     revoked_count = len(data[data['撤销信息'].str.contains('已撤销', na=False)])
@@ -795,6 +801,77 @@ def test():
     # 渲染模板并将 HTML 内容传递给它
     return render_template('test.html', **response_data)
    
+
+@app.route('/export_page')
+@required_role('super_admin') # 或者其他你认为合适的角色
+@check_redis_session
+def export_page():
+    """
+    渲染导出 Excel 文件的页面。
+    """
+    response_data = load_session()
+    return render_template('export_page.html', **response_data)
+
+# 新增: 处理 Excel 导出请求的路由
+@app.route('/export_excel')
+@required_role('super_admin') # 与 export_page 保持一致的角色控制
+@check_redis_session
+def export_excel():
+    """
+    根据用户系部导出对应的违纪数据为 Excel 文件。
+    """
+    try:
+        # 1. 加载 session 获取用户系部
+        response_data = load_session()
+        department = response_data.get('user_department')
+
+        if not department:
+            logger.error("无法从 session 获取用户系部信息")
+            # 可以 flash 一个消息并重定向，或者返回错误页面
+            # flash("无法获取您的系部信息，请重新登录。", "error")
+            return redirect(url_for('export_page')) # 或者 'home' 或 'login'
+
+        # 2. 加载对应系部的数据
+        logger.info(f"用户 {session.get('username')} 请求导出 {department} 的数据")
+        df = load_data(department)
+
+        if df.empty:
+            logger.warning(f"{department} 数据文件为空，无法导出。")
+            # flash(f"{department} 数据为空，无法导出。", "warning")
+            return redirect(url_for('export_page'))
+
+        # 3. 创建内存中的 BytesIO 对象
+        output = BytesIO()
+
+        # 4. 将 DataFrame 写入 Excel 到 BytesIO 对象
+        #    engine='openpyxl' 是写入 .xlsx 格式所必需的
+        #    index=False 表示不将 DataFrame 的索引写入 Excel 文件
+        df.to_excel(output, index=False, engine='openpyxl')
+
+        # 5. 将 BytesIO 对象的指针移到开头，以便 send_file 读取
+        output.seek(0)
+
+        # 6. 生成动态文件名
+        today_str = datetime.date.today().strftime("%Y%m%d")
+        filename = f"{department}_违纪数据_{today_str}.xlsx"
+        logger.info(f"准备发送文件: {filename}")
+
+        # 7. 使用 send_file 发送文件
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', # .xlsx 文件的 MIME 类型
+            as_attachment=True,       # 作为附件下载
+            download_name=filename    # 指定下载时的文件名
+        )
+
+    except FileNotFoundError:
+        logger.error(f"尝试导出时未找到 {department} 的数据文件。")
+        # flash(f"未找到 {department} 的数据文件，无法导出。", "error")
+        return redirect(url_for('export_page'))
+    except Exception as e:
+        logger.exception("导出 Excel 文件时发生未知错误") # 记录完整错误信息
+        # flash("导出文件时发生错误，请联系管理员。", "error")
+        return redirect(url_for('export_page'))
 
 if __name__ == '__main__':
     app.run(debug=True)
