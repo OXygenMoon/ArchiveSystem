@@ -49,7 +49,6 @@ WEIJI_LEVELS = [
     '开除学籍'
 ]
 
-
 # 处分类型
 WEIJI_TYPES = [
     '不尊重老师',
@@ -66,3 +65,16 @@ WEIJI_TYPES = [
     '出勤',
     '其他原因'
 ]
+
+# 学籍状态
+STUDENT_STATUS = (
+    '在读',
+    '毕业',
+    '退学'
+)
+
+# 处分状态
+PUNISH_STATUS = (
+    '未撤销',
+    '已撤销'
+)

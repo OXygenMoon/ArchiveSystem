@@ -50,115 +50,156 @@
         <div id="pagination" class="flex justify-center join">
         </div>
         <!-- 编辑弹窗 -->
-    <dialog id="editModal" class="modal">
-        <div class="modal-box w-11/12 max-w-3xl">
-            <form id="editForm" method="dialog">
-                <h3 class="font-bold text-lg mb-4">编辑违纪信息</h3>
+<dialog id="editModal" class="modal">
+            <div class="modal-box w-11/12 max-w-3xl">
+                <form id="editForm" method="dialog">
+                    <button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="document.getElementById('editModal').close()">✕</button> {# 添加右上角关闭按钮 #}
+                    <h3 class="font-bold text-lg mb-4">编辑违纪信息</h3>
 
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-3 gap-4 mb-4">
 
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">编号</span>
-                        </label>
-                        <input type="text" id="editId" class="input input-bordered input-sm" disabled/>
+                        {# --- 其他表单字段保持不变 --- #}
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">编号</span>
+                            </label>
+                            <input type="text" id="editId" class="input input-bordered input-sm" disabled/>
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">处理 by</span>
+                            </label>
+                            <input type="text" id="byteacher" class="input input-bordered input-sm" disabled/>
+                        </div>
+
+                        <div></div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">姓名</span>
+                            </label>
+                            <input type="text" id="editName" class="input input-bordered input-sm" required />
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">系部</span>
+                            </label>
+                            <input type="text" id="editDepartment" class="input input-bordered input-sm" required/>
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">班级</span>
+                            </label>
+                            <input type="text" id="editClass" class="input input-bordered input-sm" required/>
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">等级</span>
+                            </label>
+                            <select id="editLevel" class="select select-bordered select-sm w-full" required>
+                                <option value="警告">警告</option>
+                                <option value="严重警告">严重警告</option>
+                                <option value="记过">记过</option>
+                                <option value="留校察看">留校察看</option>
+                                <option value="开除学籍">开除学籍</option>
+                            </select>
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">日期</span>
+                            </label>
+                            <input type="date" id="editDate" class="input input-bordered input-sm" required/>
+                        </div>
+
+                        <div></div>
+
+                        <div class="form-control col-span-3"> {# 使用 col-span-3 跨越三列 #}
+                            <label class="label">
+                                <span class="label-text">违纪类型 (可多选)</span>
+                            </label>
+                            <div id="editTypeCheckboxesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 border border-base-300 rounded-lg"> {# 内部可以继续使用 grid 来排列 checkbox #}
+                                {% if weiji_types %}
+                                    {% for weiji_type in weiji_types %}
+                                    <div class="form-control">
+                                        <label class="label cursor-pointer justify-start gap-2">
+                                            <input type="checkbox" name="type" value="{{ weiji_type }}" class="checkbox checkbox-accent checkbox-sm" />
+                                            <span class="label-text text-sm">{{ weiji_type }}</span>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-error col-span-full">无法加载违纪类型选项。</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="form-control col-span-3"> {# 使用 col-span-3 跨越三列 #}
+                            <label class="label">
+                                <span class="label-text">原因</span>
+                            </label>
+                            <textarea id="editReason" class="textarea textarea-bordered textarea-sm"></textarea>
+                        </div>
+
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">学籍状态</span>
+                            </label>
+                            <select id="student_status" class="select select-bordered select-sm w-full">
+                                {% if STUDENT_STATUS %}
+                                    {% for student_status in STUDENT_STATUS %}
+                                    <option value="{{ student_status }}">{{ student_status }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        {# --- 修改：处分状态改为下拉菜单 --- #}
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">处分状态</span>
+                            </label>
+                            <select id="punish_status" class="select select-bordered select-sm w-full">
+                                <option value="未撤销">未撤销</option> {# 或者根据你的实际状态命名，例如 '有效' #}
+                                <option value="已撤销">已撤销</option>
+                                
+                            </select>
+                        </div>
+                        {# --- 修改结束 --- #}
+
+                        <div class="form-control">
+                             <label class="label">
+                                <span class="label-text">撤销时间</span>
+                            </label>        
+                            <input type="date" id="editRevoke" class="input input-bordered input-sm" placeholder="撤销时自动填充日期"/>
+                    
+                        </div>
+
                     </div>
 
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">处理 by</span>
-                        </label>
-                        <input type="text" id="byteacher" class="input input-bordered input-sm" disabled/>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">姓名</span>
-                        </label>
-                        <input type="text" id="editName" class="input input-bordered input-sm" required />
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">系部</span>
-                        </label>
-                        <input type="text" id="editDepartment" class="input input-bordered input-sm" required/>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">班级</span>
-                        </label>
-                        <input type="text" id="editClass" class="input input-bordered input-sm" required/>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">等级</span>
-                        </label>
-                        <select id="editLevel" class="select select-bordered select-sm w-full" required>
-                            <option value="警告">警告</option>
-                            <option value="严重警告">严重警告</option>
-                            <option value="记过">记过</option>
-                            <option value="留校察看">留校察看</option>
-                            <option value="开除学籍">开除学籍</option>
-                        </select>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                        <span class="label-text">日期</span>
-                        </label>
-                        <input type="date" id="editDate" class="input input-bordered input-sm" required/>
-                    </div>
-
-                    <!-- 类型 (多选) -->
-                    <div class="form-control md:col-span-2"> {# 让类型区域跨越两列 #}
-                        <label class="label">
-                            <span class="label-text">违纪类型 (可多选)</span>
-                        </label>
-                        <div id="editTypeCheckboxesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-base-300 rounded-lg">
-                            {% if weiji_types %} {# 确保 weiji_types 存在 #}
-                                {% for weiji_type in weiji_types %}
-                                <div class="form-control">
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        {# name="type" is crucial for backend processing #}
-                                        <input type="checkbox" name="type" value="{{ weiji_type }}" class="checkbox checkbox-accent checkbox-sm" />
-                                        <span class="label-text text-sm">{{ weiji_type }}</span>
-                                    </label>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <p class="text-error col-span-full">无法加载违纪类型选项。</p>
-                            {% endif %}
+                    {# --- 修改：调整按钮布局 --- #}
+                    <div class="modal-action mt-6 flex justify-between items-center"> {# 使用 flex justify-between #}
+                        {# 左侧按钮组 #}
+                        <div class="flex gap-2">
+                            <button class="btn btn-sm btn-active btn-primary" type="button" id="revokeButton">撤销处分</button> {# 修改按钮文字和ID #}
+                            <button class="btn btn-sm btn-active btn-secondary" type="button" id="withdrawButton">置为退学</button> {# 新增退学按钮 #}
+                            <button class="btn btn-sm btn-active btn-accent" type="button" id="graduateButton">置为毕业</button> {# 新增毕业按钮 #}
+                        </div>
+                        {# 右侧按钮组 #}
+                        <div class="flex gap-2">
+                            <button class="btn btn-sm" type="button" onclick="document.getElementById('editModal').close()">关闭</button>
+                            <button class="btn btn-sm btn-primary" type="submit">提交修改</button> {# 修改按钮文字 #}
                         </div>
                     </div>
-
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                        <span class="label-text">原因</span>
-                        </label>
-                        <textarea id="editReason" class="textarea textarea-bordered textarea-sm"></textarea>
-                    </div>
-
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                        <span class="label-text">撤销信息</span>
-                        </label>
-                        <input type="text" id="editRevoke" class="input input-bordered input-sm"/>
-                    </div>
-
-                </div>
-
-                <div class="modal-action">
-                    <button class="btn btn-sm" type="button" onclick="fillRevoke()">撤销</button>
-                    <button class="btn btn-sm" type="button" onclick="document.getElementById('editModal').close()">关闭</button>
-                    <button class="btn btn-sm btn-primary" type="submit">提交</button>
-                </div>
-            </form>
-        </div>
-    </dialog>
+                    {# --- 修改结束 --- #}
+                </form>
+            </div>
+        </dialog>
     </div>
     <div id="errorMessage" class="alert alert-error mt-4" style="display:none;"></div>
     {% endblock %}
@@ -166,6 +207,9 @@
 
     {% block scripts %}
     <script>
+        let currentPage = {{currentPage}};
+        let entriesPerPage = {{ perPage }};
+        let currentSearchTerm = ''; // 当前搜索关键词
         const tableBody = document.getElementById('tableBody');
         const entriesPerPageSelect = document.getElementById('entriesPerPage');
         const paginationContainer = document.getElementById('pagination');
@@ -174,14 +218,16 @@
         const searchButton = document.getElementById('searchButton');
         const resetButton = document.getElementById('resetButton');
         const errorMessageDiv = document.getElementById('errorMessage');
-        let currentPage = {{currentPage}};
-        let entriesPerPage = {{ perPage }};
-        let currentSearchTerm = ''; // 当前搜索关键词
         entriesPerPageSelect.value = entriesPerPage;
         const editModal = document.getElementById('editModal');
         const editForm = document.getElementById('editForm');
         let currentSortColumn = null;
         let isAscending = true;
+
+        // 按钮
+        const revokeButton = document.getElementById('revokeButton');
+        const withdrawButton = document.getElementById('withdrawButton');
+        const graduateButton = document.getElementById('graduateButton');
 
 
         // 封装 fetch 请求函数
@@ -477,12 +523,7 @@
 
         // 打开编辑弹窗
         function openEditModal(recordId) {
-            // 查找对应的记录
-            fetchData(`/get_record?record_id=${recordId}`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
+            fetchData(`/get_record?record_id=${recordId}`, { /* ... headers ... */ })
                 .then(data => {
                     console.log("get_record result:", data);
                     // 将数据显示在表单中
@@ -493,40 +534,44 @@
                     document.getElementById('editClass').value = data[2];
                     document.getElementById('editLevel').value = data[3];
                     document.getElementById('editDate').value = formatDate(data[4]);
-                    // document.getElementById('editType').value = data[5];   // 类型 index 5
-                    // --- Handle multi-select Type checkboxes ---
-                    const savedTypesString = data[5] || ''; // Get the comma-separated string (index 5 is Type)
-                    const savedTypesArray = savedTypesString ? savedTypesString.split(',') : []; // Split into array, handle empty string
 
+                    // --- 处理多选类型复选框 (保持不变) ---
+                    const savedTypesString = data[5] || ''; // Type index 5
+                    const savedTypesArray = savedTypesString ? savedTypesString.split(',') : [];
                     const typeCheckboxes = editModal.querySelectorAll('#editTypeCheckboxesContainer input[type="checkbox"][name="type"]');
-
                     typeCheckboxes.forEach(checkbox => {
-                        // Check the box if its value is in the saved array
                         checkbox.checked = savedTypesArray.includes(checkbox.value);
                     });
-                    // --- End of Type checkbox handling ---
-                    document.getElementById('editReason').value = data[6]; // 原因 index 6
-                    document.getElementById('editRevoke').value = data[7]; // 撤销 index 7
+                    // --- 结束 ---
 
+                    document.getElementById('editReason').value = data[6]; // 原因 index 6
+                    document.getElementById('editRevoke').value = data[7]; // 撤销信息 index 7 (现在只是初始值)
+                    document.getElementById('student_status').value = data[10]; // 学籍状态 index 10
+
+                    // --- 修改：填充处分状态下拉菜单 ---
+                    // 假设 data[11] 存储的是处分状态的字符串值，例如 '处分中' 或 '已撤销'
+                    // 如果 data[11] 存储的是布尔值或其他格式，需要在这里转换
+                    const punishStatusSelect = document.getElementById('punish_status');
+                    if (data[11] === '已撤销' || data[11] === true) { // 假设 true 代表已撤销, false/null/其他 代表处分中
+                         punishStatusSelect.value = '已撤销';
+                    } else {
+                         punishStatusSelect.value = '处分中'; // 默认或根据 data[11] 的值设置
+                    }
                     // 显示弹窗
                     editModal.showModal();
                 })
-                .catch(() => {
-                    //  错误信息已经在fetchData中处理
-                });
+                .catch(() => { /* ... 错误处理 ... */ });
         }
 
         // 编辑表单提交处理
         editForm.addEventListener('submit', (event) => {
             event.preventDefault(); // 阻止默认提交行为
 
-            // --- 收集选中的类型复选框的值 ---
-            // 1. 找到所有被选中的类型复选框
+            // --- 收集选中的类型复选框的值 (保持不变) ---
             const checkedTypeCheckboxes = editModal.querySelectorAll('#editTypeCheckboxesContainer input[type="checkbox"][name="type"]:checked');
-            // 2. 从选中的复选框中提取 value 值，组成一个数组
             const selectedTypesArray = Array.from(checkedTypeCheckboxes).map(cb => cb.value);
             // --- 类型收集结束 ---
-            // 3. 获取其他表单数据
+
             const recordId = document.getElementById('editId').value;
 
             const updatedData = {
@@ -535,11 +580,14 @@
                 className: document.getElementById('editClass').value,
                 level: document.getElementById('editLevel').value,
                 date: document.getElementById('editDate').value,
-                //type: document.getElementById('editType').value,  // 获取类型的值
-                type: selectedTypesArray,
+                type: selectedTypesArray, // 保持数组形式
                 reason: document.getElementById('editReason').value,
-                revoke: document.getElementById('editRevoke').value,
+                revoke: document.getElementById('editRevoke').value, // 撤销信息现在是日期或空
                 byteacher: document.getElementById('byteacher').value,
+                student_status: document.getElementById('student_status').value, // 学籍状态
+                // --- 修改：读取处分状态下拉菜单的值 ---
+                punish_status: document.getElementById('punish_status').value
+                // --- 修改结束 ---
             };
             fetchData(`/update_record?record_id=${recordId}`, {
                 method: 'POST',
@@ -554,11 +602,8 @@
                     editModal.close()
                     fetchPageData() // 刷新页面
                 })
-                .catch(() => {
-                    //  错误信息已经在fetchData中处理
-                });
+                .catch(() => { /* ... 错误处理 ... */ });
         });
-
         // 删除记录
         function deleteRecord(recordId) {
             if (confirm("确定要删除该条记录吗？")) {
@@ -613,21 +658,38 @@
                 });
         }
 
-        function fillRevoke() {
+        // 获取今天的日期，格式为 YYYY-MM-DD
+        function getTodayDate() {
             const now = new Date();
             const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从 0 开始，需要 +1，并且补零
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从 0 开始，需要 +1
             const day = String(now.getDate()).padStart(2, '0');
-            const formattedDate = `${year}.${month}.${day} 已撤销`;
-            document.getElementById('editRevoke').value = formattedDate;
+            return `${year}-${month}-${day}`;
         }
 
-        function revokeAndClose() {
-            fillRevoke(); // 调用 fillRevoke 函数，填入撤销信息
-            document.getElementById('editModal').close();
-        }
+        // 处理 "撤销处分" 按钮点击
+        revokeButton.addEventListener('click', () => {
+            // 1. 将撤销信息栏填入今天日期
+            document.getElementById('editRevoke').value = getTodayDate();
+            // 2. 将处分状态栏置为“已撤销”
+            document.getElementById('punish_status').value = '已撤销';
+            // 可选：给用户一些视觉反馈，比如按钮闪烁或提示
+            console.log("处分已标记为撤销，撤销日期已填入。");
+        });
 
+        // 处理 "置为退学" 按钮点击
+        withdrawButton.addEventListener('click', () => {
+            // 将学籍状态置为“退学”
+            document.getElementById('student_status').value = '退学'; // 确保 '退学' 是你 <select> 中的一个有效 value
+             console.log("学籍状态已设置为退学。");
+        });
 
+        // 处理 "置为毕业" 按钮点击
+        graduateButton.addEventListener('click', () => {
+            // 将学籍状态置为“毕业”
+            document.getElementById('student_status').value = '毕业'; // 确保 '毕业' 是你 <select> 中的一个有效 value
+             console.log("学籍状态已设置为毕业。");
+        });
 
         //初始化数据加载
         fetchPageData();

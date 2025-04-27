@@ -26,6 +26,8 @@ from config import (
     SECRET_KEY, USER_ROLES, DEPARTMENTS,
     BASE_DIR, ARCHIVE_CSV, UPLOAD_FOLDER, ALLOWED_UPLOAD_EXTENSIONS, WEIJI_TYPES,
     WEIJI_LEVELS,  # 违纪等级列表
+    STUDENT_STATUS,  # 学籍状态
+    PUNISH_STATUS,   # 处分状态
     DATA_FILE_JINGYI, DATA_FILE_ZHIZAO  # 经艺系 / 制造系 违纪表格路径
 )
 
@@ -200,6 +202,10 @@ def home():
 def weiji_show():
     # 加载 session
     response_data = load_session()
+    
+    # 加载 数据
+    response_data['STUDENT_STATUS'] = STUDENT_STATUS
+    response_data['PUNISH_STATUS'] = PUNISH_STATUS
 
     try:
         # 加载数据
@@ -318,6 +324,8 @@ def update_record():
             cols[6],
             cols[7],
             cols[9],
+            cols[10],
+            cols[11],
         ]] = [
             updated_data['name'],
             updated_data['department'],
@@ -329,6 +337,8 @@ def update_record():
             updated_data['reason'],
             updated_data['revoke'],
             updated_data['byteacher'],
+            updated_data['student_status'],
+            updated_data['punish_status']
         ]
         # 根据系部修改数据表
         if department == '经艺系':
@@ -428,8 +438,9 @@ def weiji_add():
                 df.columns[6]: new_record['原因'],
                 df.columns[7]: '', # 撤销信息默认为空字符串或 None
                 df.columns[8]: new_record['系部'],
-                # df.columns[8]: new_record['经手人'],
-                df.columns[9]: session['username']
+                df.columns[9]: session['username'],
+                df.columns[10]: STUDENT_STATUS[0],  # 在读
+                df.columns[11]: PUNISH_STATUS[0],   # 未撤销
             }
             # 确保新行的列顺序和DataFrame一致
             new_row_df = pd.DataFrame([new_row_data], columns=df.columns)
@@ -632,6 +643,7 @@ def download_disposition(record_id):
         date = record[4]
         reason = record[6]
         prompt = ''
+        
         if level in ['警告', '严重警告']:
             length = 3
         elif level == '记过':
@@ -639,7 +651,14 @@ def download_disposition(record_id):
         elif level == '留校察看':
             prompt = '4. 留校期间如再有违反校纪校规的行为，自愿退学\n'
             length = 12
-
+            
+        # 家长签字
+        parent_sign = ''
+        if level == '警告':
+            parent_sign = '家长签字(可以拍照给家长代替签字）：'
+        else:
+            parent_sign = '家长签字：'
+            
         # 创建 Word 文档
         document = Document()
 
@@ -687,7 +706,7 @@ def download_disposition(record_id):
         sign = document.add_paragraph()
         sign.add_run("学生签字：")
         sign.add_run("\n\n")  # 签字留空
-        sign.add_run("家长签字：")
+        sign.add_run(parent_sign)
         sign.add_run("\n\n")
         sign.add_run("班主任签字：")
 
