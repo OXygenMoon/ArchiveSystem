@@ -24,19 +24,3 @@ def load_session() -> dict:
         "user_truename": user_truename
     }
     return response_data
-
-def load_data(department):
-    '''
-    根据系部来选择对应的数据表
-    '''
-    if department == '经艺系':
-        data = pd.read_csv(DATA_FILE_JINGYI, encoding = 'utf-8')
-    elif department == '制造系':
-        data = pd.read_csv(DATA_FILE_ZHIZAO, encoding = 'utf-8')
-    elif department == '高职系':
-        pass
-
-    # 将所有的 NaN 填充为空字符串
-    data = data.fillna('')
-    return data
-

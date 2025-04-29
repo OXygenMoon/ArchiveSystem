@@ -1,0 +1,109 @@
+{% extends "layout.html" %}
+
+{% block title %}添加新荣誉{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6 text-center prose">添加新荣誉记录</h1>
+
+    {# 显示可能的错误信息 (如果从后端传来) #}
+    {% if error %}
+    <div role="alert" class="alert alert-error mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <span>错误！{{ error }}</span>
+    </div>
+    {% endif %}
+
+    {# 添加荣誉的表单 - Added grid classes here #}
+    <form action="{{ url_for('add_honor') }}" method="post" enctype="multipart/form-data" class="bg-base-100 p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {# Each form control div will be a grid item #}
+
+        {# 荣誉名称 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_name">
+                <span class="label-text font-medium">荣誉名称</span>
+                <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <input type="text" id="honor_name" name="honor_name" value="{{ form_data.honor_name if form_data else '' }}" placeholder="例如：全国大学生数学建模竞赛一等奖" class="input input-bordered w-full" required />
+        </div>
+
+        {# 荣誉类型 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_type">
+                <span class="label-text font-medium">荣誉类型</span>
+                <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <select id="honor_type" name="honor_type" class="select select-bordered w-full" required>
+                <option disabled {% if not form_data or not form_data.honor_type %}selected{% endif %} value="">请选择类型</option>
+                {% for type_option in honor_types %}
+                    <option value="{{ type_option }}" {% if form_data and form_data.honor_type == type_option %}selected{% endif %}>{{ type_option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# 荣誉等级 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_level">
+                <span class="label-text font-medium">荣誉等级</span>
+                <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <select id="honor_level" name="honor_level" class="select select-bordered w-full" required>
+                <option disabled {% if not form_data or not form_data.honor_level %}selected{% endif %} value="">请选择等级</option>
+                {% for level in honor_levels %}
+                    <option value="{{ level }}" {% if form_data and form_data.honor_level == level %}selected{% endif %}>{{ level }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# 获得时间 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_date">
+                <span class="label-text font-medium">获得时间</span>
+                <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <input type="date" id="honor_date" name="honor_date" value="{{ form_data.honor_date if form_data else '' }}" class="input input-bordered w-full" required max="{{ now().strftime('%Y-%m-%d') }}" /> {# 限制最大日期为今天 #}
+        </div>
+
+        {# 敲章/颁发单位1 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_stamp">
+                <span class="label-text font-medium">敲章/颁发单位1</span>
+                <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <input type="text" id="honor_stamp" name="honor_stamp" value="{{ form_data.honor_stamp if form_data else '' }}" placeholder="例如：教育部、XX大学" class="input input-bordered w-full" required />
+        </div>
+
+        {# 敲章/颁发单位2 #}
+        <div class="form-control w-full">
+            <label class="label" for="honor_stamp_other">
+                <span class="label-text font-medium">敲章/颁发单位2(可选)</span>
+            </label>
+            <input type="text" id="honor_stamp_other" name="honor_stamp_other" value="{{ form_data.honor_stamp_other if form_data else '' }}" placeholder="例如：教育部、XX大学" class="input input-bordered w-full" />
+        </div>
+
+
+        {# 上传图片 - Add md:col-span-2 to make it span both columns on medium screens and up #}
+        <div class="form-control w-full md:col-span-2">
+            <label class="label" for="honor_image">
+                <span class="label-text font-medium">上传证明图片</span>
+                 <span class="label-text-alt text-error">* 必需</span>
+            </label>
+            <input type="file" id="honor_image" name="honor_image" class="file-input file-input-bordered file-input-primary w-full" accept="image/png, image/jpeg, image/gif" required />
+            <label class="label">
+                <span class="label-text-alt">允许的文件格式: png, jpg, jpeg, gif</span>
+            </label>
+        </div>
+
+        {# 提交按钮 - Add md:col-span-2 and adjust margin/alignment #}
+        <div class="text-center md:col-span-2 mt-2"> {# Adjusted margin top slightly #}
+             {# Removed the unnecessary <td> wrapping #}
+            <a href="{{ url_for('home') }}" class="btn btn-sm btn-ghost mr-2">返回</a> {# Using btn-ghost for secondary action, added margin-right #}
+            <button type="submit" class="btn btn-sm btn-primary">添加</button>
+        </div>
+
+    </form>
+
+    {# 返回看板链接 #}
+
+</div>
+{% endblock %}
