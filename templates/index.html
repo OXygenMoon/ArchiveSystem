@@ -7,34 +7,27 @@
       body {
         font-family: sans-serif; /* Keep sans-serif */
         min-height: 100vh; /* Ensure body takes full height */
+      background-image: url(https://w.wallhaven.cc/full/6d/wallhaven-6d8wgq.png);
         /* Removed background image - using DaisyUI utility class now */
       }
       /* Style for fade-out animation */
       @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-      .alert.animate-fade-out { animation: fadeOut 0.5s ease-in-out 4.5s forwards; }
 
       /* Optional: Slightly dim the icon color if needed, but utility class is preferred */
       /* .input-icon-color { color: hsl(var(--bc) / 0.5); } */
+      .body-bg {
+
+      }
     </style>
 </head>
 
 <body class="body-bg bg-base-200">
     <div class="hero min-h-screen flex items-center justify-center ">
-        <div class="hero-content flex-col text-center w-full max-w-md px-4"> {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                <div class="toast toast-top toast-center z-50">
-                    {% for category, message in messages %}
-                    <div class="alert alert-{{ category or 'info' }} shadow-lg animate-fade-out">
-                        <div> <span>{{ message }}</span> </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            {% endwith %}
+        <div class="hero-content flex-col text-center w-full max-w-md px-4">
 
             <div class="w-full">
                 <div id="initial-content" class="{{ 'hidden' if show_login_form else '' }} text-base-content"> <h1 class="mb-4 text-4xl font-bold">{{ msg or '欢迎来到个人成就系统' }}</h1>
-                    <p class="mb-5 prose max-w-none">记录、展示和管理您的个人成就与荣誉。请登录或注册以开始使用。</p> <a href="#" id="show-login-btn" class="btn btn-outline btn-primary">立即登录</a> <a href="{{ url_for('register') }}" class="btn btn-outline btn-secondary ml-2">注册账号</a>
+                    <p class="mb-4 prose max-w-none">记录、展示和管理您的个人成就与荣誉。请登录或注册以开始使用。</p> <a href="#" id="show-login-btn" class="btn btn-outline btn-primary">立即登录</a> <a href="{{ url_for('register') }}" class="btn btn-outline btn-secondary ml-2">注册账号</a>
                 </div>
 
                 <div id="login-form-container" class="{{ '' if show_login_form else 'hidden' }} w-full">

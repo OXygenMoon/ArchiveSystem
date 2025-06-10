@@ -6,7 +6,9 @@
         "department": "经艺系",
         "role": "super_admin",
         "class": 2221,
-        "motto": "在努力的路上"
+        "major": "计算机",
+        "employment_day": "2022-08-01",
+        "motto": "为啥系统开发这么困难呢？"
     },
     "tyy": {
         "username": "tyy",

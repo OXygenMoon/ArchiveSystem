@@ -1,6 +1,6 @@
 import io
 import zipfile
-from PIL import Image
+from PIL import Image,ImageOps
 import re
 import os
 import json
@@ -155,6 +155,8 @@ def home():
         'department': session.get('department'),
         'class': session.get('class'),
         'truename': session.get('truename'),
+        'major': session.get('major'),
+        'employment_duration': session.get('employment_duration'),
         'motto': current_motto,
         'honor_types': HONOR_TYPE,
         'honor_levels': LEVEL_TYPE
@@ -281,9 +283,20 @@ def login():
 
         # --- User found ---
         if username in users:
-            # IMPORTANT: Use hashed password comparison in production!
-            # Example: if check_password_hash(users[username]['password_hash'], password):
+
             if password == users[username]['password']: # Replace with secure check
+
+                def get_employment_duration(employment_day):
+                    # 根据日期计算入职天数
+                    start_date = datetime.datetime.strptime(employment_day, '%Y-%m-%d').date()
+                    today = datetime.datetime.now().date()
+                    total_days = (today - start_date).days
+                    if total_days < 0:
+                        employment_duration_str = "未来日期"
+                    else:
+                        employment_duration_str = f"{total_days}天"
+                    return employment_duration_str
+
                 # --- Login Success ---
                 session['logged_in'] = True
                 session['username'] = users[username]['username']
@@ -292,6 +305,8 @@ def login():
                 session['department'] = users[username].get('department', '')
                 session['class'] = users[username].get('class', '')
                 session['truename'] = users[username].get('truename', username)
+                session['major'] = users[username].get('major', '')
+                session['employment_duration'] = get_employment_duration(users[username].get('employment_day'))
                 session.permanent = True # Make session persistent if needed
                 logger.info(f"用户 '{username}' 登录成功")
 
@@ -321,7 +336,7 @@ def register():
     """注册页面 (占位符)"""
     # 目前只是显示一个信息并重定向回主页
     # 未来可以在这里渲染注册表单模板
-    flash("注册功能暂未开放，敬请期待！", "info")
+    flash("注册功能暂未开放，敬请期待！", "请你耐心等待哦～")
     return redirect(url_for('index'))
 # +++++++++++++++++++++++++++++++++++++++
 
@@ -365,8 +380,10 @@ def add_honor():
             return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=form_data)
 
         try:
-            filename = secure_filename(honor_image.filename)
-            base, ext = os.path.splitext(filename)
+            # filename = secure_filename(honor_image.filename)
+            # base, ext = os.path.splitext(filename)
+            base, ext = os.path.splitext(honor_image.filename)
+            ext = ext.lower()
             timestamp = int(time.time())
             rand_int = random.randint(100, 999)
             unique_filename = f"{username}_{timestamp}_{rand_int}{ext}"
@@ -377,13 +394,14 @@ def add_honor():
             thumb_filename = None
             try:
                 img = Image.open(save_path)
-                if img.mode in ('RGBA', 'P') and unique_filename.lower().endswith(('.jpg', '.jpeg')):
-                    img = img.convert('RGB')
+                img = ImageOps.exif_transpose(img) # 防止图片自己旋转
 
                 thumbnail_size = (400, 400)
                 img.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
 
+                # thumb_base, thumb_ext = os.path.splitext(unique_filename)
                 thumb_base, thumb_ext = os.path.splitext(unique_filename)
+                thumb_ext= thumb_ext.lower()
                 thumb_filename = f"{thumb_base}_thumb{thumb_ext}"
                 thumb_save_path = os.path.join(current_upload_folder, thumb_filename)
                 img.save(thumb_save_path, quality=85, optimize=True)
@@ -466,8 +484,8 @@ def edit_honor(honor_id):
         if new_image_file and new_image_file.filename != '':
             if allowed_file(new_image_file.filename):
                 try:
-                    filename = secure_filename(new_image_file.filename)
-                    base, ext = os.path.splitext(filename)
+                    _, ext = os.path.splitext(new_image_file.filename)
+                    ext = ext.lower()
                     timestamp = int(time.time())
                     rand_int = random.randint(100, 999)
                     updated_filename = f"{username}_{timestamp}_{rand_int}{ext}"
@@ -477,8 +495,7 @@ def edit_honor(honor_id):
 
                     try:
                         img = Image.open(save_path)
-                        if img.mode in ('RGBA', 'P') and updated_filename.lower().endswith(('.jpg', '.jpeg')):
-                           img = img.convert('RGB')
+                        img = ImageOps.exif_transpose(img)
                         thumbnail_size = (400, 400)
                         img.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
                         thumb_base, thumb_ext = os.path.splitext(updated_filename)
@@ -864,6 +881,7 @@ def download_honors_zip():
         if processed_count == 0:
              return jsonify(error="未能成功处理任何请求的图片文件。"), 400
 
+        flash(message='已为你成功下载当前视图的所有荣誉', category='记得下次再来呀')
         return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=zip_download_filename)
 
     except Exception as e:

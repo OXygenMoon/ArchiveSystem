@@ -2,6 +2,23 @@
 
 {% block title %}添加新荣誉{% endblock %}
 
+{% block head_extra %}
+
+    <style>
+        label.required::after {
+          content: " *";
+          color: #e74c3c; /* 或者你的主题色 */
+          font-weight: bold;
+          font-size: 1.1em; /* 调整大小 */
+          padding-left: 2px; /* 调整间距 */
+        }
+
+    </style>
+
+
+
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <h1 class="text-3xl font-bold mb-6 text-center prose">添加新荣誉记录</h1>
@@ -20,18 +37,18 @@
 
         {# 荣誉名称 #}
         <div class="form-control w-full">
-            <label class="label" for="honor_name">
+            <label class="label required" for="honor_name">
                 <span class="label-text font-medium">荣誉名称</span>
-                <span class="label-text-alt text-error">* 必需</span>
+{#                <span class="label-text-alt text-error">* 必需</span>#}
             </label>
-            <input type="text" id="honor_name" name="honor_name" value="{{ form_data.honor_name if form_data else '' }}" placeholder="例如：全国大学生数学建模竞赛一等奖" class="input input-bordered w-full" required />
+            <input type="text" id="honor_name" name="honor_name" value="{{ form_data.honor_name if form_data else '' }}" placeholder="例如：全国大学生数学建模竞赛一等奖" class="input input-bordered w-full required" required />
         </div>
 
         {# 荣誉类型 #}
         <div class="form-control w-full">
-            <label class="label" for="honor_type">
+            <label class="label required" for="honor_type">
                 <span class="label-text font-medium">荣誉类型</span>
-                <span class="label-text-alt text-error">* 必需</span>
+{#                <span class="label-text-alt text-error">* 必需</span>#}
             </label>
             <select id="honor_type" name="honor_type" class="select select-bordered w-full" required>
                 <option disabled {% if not form_data or not form_data.honor_type %}selected{% endif %} value="">请选择类型</option>
@@ -43,9 +60,9 @@
 
         {# 荣誉等级 #}
         <div class="form-control w-full">
-            <label class="label" for="honor_level">
+            <label class="label required" for="honor_level">
                 <span class="label-text font-medium">荣誉等级</span>
-                <span class="label-text-alt text-error">* 必需</span>
+{#                <span class="label-text-alt text-error">* 必需</span>#}
             </label>
             <select id="honor_level" name="honor_level" class="select select-bordered w-full" required>
                 <option disabled {% if not form_data or not form_data.honor_level %}selected{% endif %} value="">请选择等级</option>
@@ -57,18 +74,18 @@
 
         {# 获得时间 #}
         <div class="form-control w-full">
-            <label class="label" for="honor_date">
+            <label class="label required" for="honor_date">
                 <span class="label-text font-medium">获得时间</span>
-                <span class="label-text-alt text-error">* 必需</span>
+{#                <span class="label-text-alt text-error">* 必需</span>#}
             </label>
             <input type="date" id="honor_date" name="honor_date" value="{{ form_data.honor_date if form_data else '' }}" class="input input-bordered w-full" required max="{{ now().strftime('%Y-%m-%d') }}" /> {# 限制最大日期为今天 #}
         </div>
 
         {# 敲章/颁发单位1 #}
         <div class="form-control w-full">
-            <label class="label" for="honor_stamp">
+            <label class="label required" for="honor_stamp">
                 <span class="label-text font-medium">敲章/颁发单位1</span>
-                <span class="label-text-alt text-error">* 必需</span>
+{#                <span class="label-text-alt text-error">* 必需</span>#}
             </label>
             <input type="text" id="honor_stamp" name="honor_stamp" value="{{ form_data.honor_stamp if form_data else '' }}" placeholder="例如：教育部、XX大学" class="input input-bordered w-full" required />
         </div>
@@ -84,9 +101,9 @@
 
         {# 上传图片 - Add md:col-span-2 to make it span both columns on medium screens and up #}
         <div class="form-control w-full md:col-span-2">
-            <label class="label" for="honor_image">
+            <label class="label required" for="honor_image">
                 <span class="label-text font-medium">上传证明图片</span>
-                 <span class="label-text-alt text-error">* 必需</span>
+{#                 <span class="label-text-alt text-error">* 必需</span>#}
             </label>
             <input type="file" id="honor_image" name="honor_image" class="file-input file-input-bordered file-input-primary w-full" accept="image/png, image/jpeg, image/gif" required />
             <label class="label">

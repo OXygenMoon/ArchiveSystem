@@ -195,3 +195,5 @@ thead {
   color: #777; /* 作者的颜色稍微淡一点 */
   margin-top: 0.5em; /* 作者名和引用语之间留一些间距 */
 }
+
+.alert.animate-fade-out { animation: fadeOut 0.5s ease-in-out 4.5s forwards; }

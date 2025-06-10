@@ -3,11 +3,11 @@
         {
             "id": "honor_1745739221_3477",
             "name": "班会课评比一等奖",
-            "type": "学生竞赛",
+            "type": "教学比武",
             "date": "2025-04-27",
             "stamp": "嘉善技师学院",
             "stamp_other": "",
-            "image_filename": "lzy_1745758818_145_JPG",
+            "image_filename": "lzy_1746751477_264.jpg",
             "honor_level": "校级"
         },
         {
@@ -19,6 +19,206 @@
             "stamp_other": "",
             "image_filename": "lzy_1745758824_926_2024.jpeg",
             "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746685247_521",
+            "name": "2024面向人人计算机应用比赛优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-07-05",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1746751589_422.jpg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746685423_927",
+            "name": "第十八届市技能节大数据应用与服务项目优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "",
+            "image_filename": "lzy_1749537715_969.jpg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746685477_209",
+            "name": "2023年嘉兴市职业教育优秀教学案例三等奖",
+            "type": "报告",
+            "date": "2023-12-21",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1746751634_952.png",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746685541_985",
+            "name": "全国青少年信息素养大赛总决赛优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-08-01",
+            "stamp": "全国青少信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746751500_771.jpg",
+            "honor_level": "国家级"
+        },
+        {
+            "id": "honor_1746685628_162",
+            "name": "2024年浙江省技能节大数据应用与服务项目二等奖",
+            "type": "学生竞赛",
+            "date": "2024-04-13",
+            "stamp": "浙江省中等职业学校职业能力大赛组委会",
+            "stamp_other": "",
+            "image_filename": "lzy_1746751606_833.jpg",
+            "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746685724_540",
+            "name": "第十八届技能节Python项目优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "lzy_1746751906_190.jpg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746685853_900",
+            "name": "2023年县技能节Python项目优秀指导教师",
+            "type": "荣誉",
+            "date": "2023-06-01",
+            "stamp": "嘉善县教育局",
+            "stamp_other": "嘉善县中等专业学校",
+            "image_filename": "lzy_1746751644_602.jpg",
+            "honor_level": "县级"
+        },
+        {
+            "id": "honor_1746685908_723",
+            "name": "2024年县技能节Python项目优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-05-01",
+            "stamp": "嘉善县教育局",
+            "stamp_other": "嘉善县中等职业学校",
+            "image_filename": "lzy_1749537698_847.jpg",
+            "honor_level": "县级"
+        },
+        {
+            "id": "honor_1746685962_220",
+            "name": "2024年县职业院校师生职业能力大赛Python二等奖",
+            "type": "技能比武",
+            "date": "2024-05-31",
+            "stamp": "嘉善县教育局",
+            "stamp_other": "嘉善县人力资源和社会保障局",
+            "image_filename": "lzy_1749537681_864.jpg",
+            "honor_level": "县级"
+        },
+        {
+            "id": "honor_1746686005_472",
+            "name": "第十八届市技能节Python项目优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "lzy_1749537728_355.jpg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746686040_541",
+            "name": "2022年嘉兴市职业学校计算机专业教师Python一等奖",
+            "type": "技能比武",
+            "date": "2022-11-01",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1746751658_524.jpg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746688630_756",
+            "name": "初级职称",
+            "type": "其他",
+            "date": "2024-11-08",
+            "stamp": "嘉兴市人力资源和社会保障局",
+            "stamp_other": "",
+            "image_filename": "lzy_1746751460_652.jpeg",
+            "honor_level": "市级"
+        },
+        {
+            "id": "honor_1746688685_171",
+            "name": "全国青少年信息素养大赛省二等奖 - 李粢睿",
+            "type": "学生竞赛",
+            "date": "2024-07-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746688685_171.jpeg",
+            "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746688728_640",
+            "name": "全国青少年信息素养大赛国二等奖 - 李粢睿",
+            "type": "学生竞赛",
+            "date": "2024-08-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746751953_213.jpeg",
+            "honor_level": "国家级"
+        },
+        {
+            "id": "honor_1746688755_654",
+            "name": "全国青少年信息素养大赛省二等奖 - 刘海",
+            "type": "学生竞赛",
+            "date": "2024-07-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746688755_654.jpeg",
+            "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746688800_163",
+            "name": "全国青少年信息素养大赛国二等奖 - 刘海",
+            "type": "学生竞赛",
+            "date": "2024-08-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746751546_410.jpeg",
+            "honor_level": "国家级"
+        },
+        {
+            "id": "honor_1746688828_224",
+            "name": "全国青少年信息素养大赛省二等奖 - 孙睿",
+            "type": "学生竞赛",
+            "date": "2024-07-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746688828_224.jpeg",
+            "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746688892_875",
+            "name": "全国青少年信息素养大赛国二等奖 - 孙睿",
+            "type": "学生竞赛",
+            "date": "2024-08-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746751556_976.jpeg",
+            "honor_level": "国家级"
+        },
+        {
+            "id": "honor_1746688972_779",
+            "name": "全国青少年信息素养大赛省一等奖 - 徐天晨",
+            "type": "学生竞赛",
+            "date": "2024-07-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746688972_779.jpeg",
+            "honor_level": "省级"
+        },
+        {
+            "id": "honor_1746689004_907",
+            "name": "全国青少年信息素养大赛国一等奖 - 徐天晨",
+            "type": "学生竞赛",
+            "date": "2024-08-01",
+            "stamp": "全国青少年信息素养大赛组委会",
+            "stamp_other": "中国电子学会",
+            "image_filename": "lzy_1746751571_421.jpeg",
+            "honor_level": "国家级"
         }
     ],
     "dh": [
