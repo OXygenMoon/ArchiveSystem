@@ -1,15 +1,4 @@
 {
-    "lzy": {
-        "username": "lzy",
-        "truename": "劳振煜",
-        "password": "123456",
-        "department": "经艺系",
-        "role": "super_admin",
-        "class": 2221,
-        "major": "计算机",
-        "employment_day": "2022-08-01",
-        "motto": "为啥系统开发这么困难呢？"
-    },
     "tyy": {
         "username": "tyy",
         "truename": "陶云云",
@@ -22,18 +11,11 @@
     "dh": {
         "username": "dh",
         "truename": "都航",
-        "password": "123456",
+        "password": "scrypt:32768:8:1$6JDyU2V0Y930wxIn$328390fc10aede52f88ba2d9fff8fbf24190a9bf877aa6646eb8debd9db9a8a8c69823f0003520dece495a67b4ad471466f510c41d1609261193c752eaaabae0",
         "department": "经艺系",
-        "role": "super_admin",
+        "role": "user",
+        "employment_day": "2024-08-01",
         "class": 2430
-    },
-    "cyk": {
-        "username": "cyk",
-        "truename": "陈宇堃",
-        "password": "123456",
-        "department": "制造系",
-        "role": "super_admin",
-        "class": -1
     },
     "hm": {
         "username": "hm",
@@ -42,5 +24,25 @@
         "department": "制造系",
         "role": "super_admin",
         "class": -1
+    },
+    "lzy": {
+        "username": "lzy",
+        "password": "scrypt:32768:8:1$AyaU36BJDQqwdwIj$b1ef648b9b4549700a2912ab22da87955050896f34ab57bf83c1f320540608ff18d516c6df00a258ded8e14f8e558cd60e3c108e12e5eb95f3a0c91702367d08",
+        "truename": "劳振煜",
+        "major": "计算机",
+        "department": "",
+        "class": "",
+        "employment_day": "2022-08-01",
+        "role": "admin",
+        "motto": "为啥系统开发这么困难呢？"
+    },
+    "zy": {
+        "username": "zy",
+        "password": "scrypt:32768:8:1$AEIHYIJeQkcNR1hy$1fe8d430d9ff1c615a954f870cfde059056b769e673882650020970516dbaac984cea1b52b1440c01166bcd69763a95092d92ddb730c913fbe29d89368960f97",
+        "truename": "张祎",
+        "major": "计算机",
+        "employment_day": "2022-08-01",
+        "role": "user",
+        "motto": ""
     }
 }

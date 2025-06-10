@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+
+{% block title %}个人资料{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* 增加卡片之间的垂直间距 */
+    .profile-section + .profile-section {
+        margin-top: 2rem;
+    }
+    .form-control {
+        margin-bottom: 0.5rem; /* 调整表单项之间的间距 */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+    {# --- 1. 修改基本资料 Section --- #}
+    <section class="profile-section">
+        <h2 class="text-2xl font-semibold mb-4 divider divider-start">修改基本资料</h2>
+        <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+                <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
+                    {# 关键：隐藏字段，用于后端识别是哪个表单提交的 #}
+                    <input type="hidden" name="form_type" value="update_profile">
+
+                    <div class="form-control">
+                        <label class="label" for="truename">
+                            <span class="label-text">真实姓名</span>
+                        </label>
+                        <input type="text" id="truename" name="truename" value="{{ user.truename or '' }}" class="input input-bordered w-full" required>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="major">
+                            <span class="label-text">专业</span>
+                        </label>
+                        <input type="text" id="major" name="major" value="{{ user.major or '' }}" class="input input-bordered w-full">
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="motto">
+                            <span class="label-text">个性签名</span>
+                        </label>
+                        <input type="text" id="motto" name="motto" value="{{ user.motto or '' }}" class="input input-bordered w-full" maxlength="100">
+                    </div>
+
+                    <div class="card-actions justify-end mt-6">
+                        <button type="submit" class="btn btn-primary">保存基本信息</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    {# --- 2. 修改密码 Section --- #}
+    <section class="profile-section">
+        <h2 class="text-2xl font-semibold mb-4 divider divider-start">修改密码</h2>
+        <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+                <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
+                     {# 关键：隐藏字段 #}
+                    <input type="hidden" name="form_type" value="change_password">
+
+                    <div class="form-control">
+                        <label class="label" for="old_password">
+                            <span class="label-text">当前密码</span>
+                        </label>
+                        <input type="password" id="old_password" name="old_password" class="input input-bordered w-full" required>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="new_password">
+                            <span class="label-text">新密码</span>
+                        </label>
+                        <input type="password" id="new_password" name="new_password" class="input input-bordered w-full" required minlength="6">
+                         <label class="label">
+                            <span class="label-text-alt">密码长度至少为6位</span>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="confirm_password">
+                            <span class="label-text">确认新密码</span>
+                        </label>
+                        <input type="password" id="confirm_password" name="confirm_password" class="input input-bordered w-full" required>
+                    </div>
+
+                    <div class="card-actions justify-end mt-6">
+                        <button type="submit" class="btn btn-secondary">确认修改密码</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

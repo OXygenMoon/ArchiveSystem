@@ -4,6 +4,7 @@ from PIL import Image,ImageOps
 import re
 import os
 import json
+import shutil # 删除目录树
 from flask import (
     Flask, render_template, request, jsonify, redirect, url_for,
     session, send_from_directory, flash, abort, send_file
@@ -15,8 +16,8 @@ from dateutil.relativedelta import relativedelta
 from werkzeug.utils import secure_filename
 import time
 from functools import wraps
-from config import HONOR_TYPE, LEVEL_TYPE # 假设你的 config.py 有这两个列表
-import markdown # <<< 新增：导入 markdown 库
+from config import HONOR_TYPE, LEVEL_TYPE, MAJOR_TYPE # 假设你的 config.py 有这两个列表
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- 配置 ---
 SECRET_KEY = os.urandom(24)
@@ -32,6 +33,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SESSION_PERMANENT'] = True
 app.config['SESSION_USE_SIGNER'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=7)
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024 # 限制为 16 MB
 
 # --- 日志 ---
 logger = app.logger
@@ -52,7 +54,18 @@ if not os.path.exists(HONORS_DATA_FILE):
     logger.info(f"创建荣誉数据文件: {HONORS_DATA_FILE}")
 
 # --- 辅助函数 ---
-# ... (parse_date_safe, allowed_file, load_data, save_data, load_honors_data, save_honors_data, load_user_data - 保持不变) ...
+def find_honor_and_owner(honor_id):
+    """
+    辅助函数：根据荣誉ID在所有用户中查找荣誉及其所有者。
+    返回 (honor_dict, owner_username) 或 (None, None)。
+    """
+    honors_data = load_honors_data()
+    for username, honors_list in honors_data.items():
+        for honor in honors_list:
+            if honor.get('id') == honor_id:
+                return honor, username
+    return None, None
+
 def parse_date_safe(date_str):
     """Safely parses YYYY-MM-DD string to date object, returns None on failure."""
     if not date_str:
@@ -108,6 +121,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_required(f):
+    """管理员权限检查装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'admin':
+            logger.warning(f"用户 '{session.get('username')}' (角色: {session.get('role')}) 尝试访问管理员页面: {request.path}")
+            flash("您没有权限访问此页面，需要管理员身份。", "error")
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # --- 路由 ---
 
 @app.after_request
@@ -123,21 +147,15 @@ def inject_now():
     """向模板注入当前时间，用于页脚"""
     return {'now': datetime.datetime.utcnow}
 
-# vvvvvvvvvv  修改部分开始 vvvvvvvvvv
 @app.route('/')
 def index():
-    """主页或登录页"""
+    """主页，现在包含登录和注册的入口"""
+    # 如果用户已登录，直接跳转到 home
     if session.get('logged_in'):
         return redirect(url_for('home'))
 
-    # --- Removed README loading and processing logic ---
-    # No need to read README.md or use markdown library here anymore
-    # readme_content_html = None # Removed
-    # try: ... except: block removed
-
-    welcome = '欢迎来到个人成就系统'
-    # Render the template without the readme_html variable
-    return render_template('index.html', msg=welcome)
+    # 未登录用户看到的是带登录/注册按钮的欢迎页
+    return render_template('index.html', majors = MAJOR_TYPE)
 
 @app.route('/home')
 @login_required
@@ -152,7 +170,6 @@ def home():
     response_data = {
         'username': username,
         'role': session.get('role'),
-        'department': session.get('department'),
         'class': session.get('class'),
         'truename': session.get('truename'),
         'major': session.get('major'),
@@ -217,6 +234,111 @@ def home():
 
     return render_template('home.html', **response_data)
 
+@app.route('/uploads/<username>/<path:filename>')
+@login_required
+def uploaded_file_user(username, filename):
+    # <<< 修改：允许用户访问自己的文件，或管理员访问任何用户的文件 >>>
+    if session.get('role') != 'admin' and session.get('username') != username:
+         logger.warning(f"用户 '{session.get('username')}' 尝试访问用户 '{username}' 的文件: {filename}")
+         abort(403) # Forbidden
+
+
+    user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, username))
+    safe_path = os.path.abspath(os.path.join(user_upload_folder, filename))
+    if not safe_path.startswith(user_upload_folder):
+        logger.warning(f"检测到潜在的路径遍历尝试 (用户: {username}): {filename}")
+        abort(404)
+
+    if not os.path.isdir(user_upload_folder):
+         logger.error(f"用户 '{username}' 的上传目录不存在: {user_upload_folder}")
+         abort(404)
+
+    try:
+        return send_from_directory(user_upload_folder, filename, as_attachment=False)
+    except FileNotFoundError:
+        logger.warning(f"尝试访问用户 '{username}' 不存在的文件: {filename} in {user_upload_folder}")
+        abort(404)
+
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """个人资料页面，支持修改基本信息和密码"""
+    username = session.get('username')
+    users = load_user_data()
+
+    # 如果找不到用户数据，则重定向到主页
+    if not username or username not in users:
+        flash("无法加载您的用户数据，请重新登录。", "error")
+        return redirect(url_for('logout'))
+
+    current_user = users[username]
+
+    if request.method == 'POST':
+        form_type = request.form.get('form_type')
+
+        # --- 表单一：处理基本信息更新 ---
+        if form_type == 'update_profile':
+            new_truename = request.form.get('truename', '').strip()
+            new_major = request.form.get('major', '').strip()
+            new_motto = request.form.get('motto', '').strip()
+
+            if not new_truename:
+                flash("真实姓名不能为空。", "error")
+                return redirect(url_for('profile'))
+
+            # 更新用户信息字典
+            users[username]['truename'] = new_truename
+            users[username]['major'] = new_major
+            users[username]['motto'] = new_motto
+
+            # 保存回 JSON 文件
+            save_data(USER_DATA_FILE, users)
+
+            # 更新 session 中的信息以便立即生效
+            session['truename'] = new_truename
+            session['major'] = new_major
+
+            logger.info(f"用户 '{username}' 更新了个人基本信息。")
+            flash("您的基本信息已成功更新！", "success")
+            return redirect(url_for('profile'))
+
+        # --- 表单二：处理密码修改 ---
+        elif form_type == 'change_password':
+            old_password = request.form.get('old_password')
+            new_password = request.form.get('new_password')
+            confirm_password = request.form.get('confirm_password')
+
+            # 验证旧密码
+            # 关键：使用 check_password_hash 来验证哈希后的密码
+            if not check_password_hash(current_user.get('password', ''), old_password):
+                flash("当前密码不正确。", "error")
+                return redirect(url_for('profile'))
+
+            # 验证新密码
+            if not new_password or len(new_password) < 6:
+                flash("新密码不能为空且长度至少为6位。", "error")
+                return redirect(url_for('profile'))
+
+            if new_password != confirm_password:
+                flash("两次输入的新密码不一致。", "error")
+                return redirect(url_for('profile'))
+
+            # 生成新密码的哈希值并更新
+            users[username]['password'] = generate_password_hash(new_password)
+            save_data(USER_DATA_FILE, users)
+
+            logger.info(f"用户 '{username}' 成功修改了密码。")
+            flash("密码已成功修改！", "success")
+            return redirect(url_for('profile'))
+
+        else:
+            flash("无效的表单提交。", "warning")
+            return redirect(url_for('profile'))
+
+    # --- 处理 GET 请求 ---
+    # 将当前用户信息传递给模板
+    return render_template('profile.html', user=current_user)
 
 @app.route('/update_motto', methods=['POST'])
 @login_required
@@ -261,7 +383,7 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route('/login', methods=['POST', 'GET'])
+@app.route('/login', methods=['POST'])
 def login():
     # Handle GET requests: If accessed directly, redirect to index page
     if request.method == 'GET':
@@ -279,12 +401,12 @@ def login():
         if not users:
              flash('登录服务暂时不可用，请稍后再试。', 'error')
              # Render index page, passing back username if possible
-             return render_template('index.html', username=username)
+             return redirect(url_for('index')) # 失败后重定向回主页
 
         # --- User found ---
         if username in users:
 
-            if password == users[username]['password']: # Replace with secure check
+            if username in users and check_password_hash(users[username]['password'], password): # Replace with secure check
 
                 def get_employment_duration(employment_day):
                     # 根据日期计算入职天数
@@ -302,7 +424,6 @@ def login():
                 session['username'] = users[username]['username']
                 # Store other user details in session
                 session['role'] = users[username].get('role', '未知角色')
-                session['department'] = users[username].get('department', '')
                 session['class'] = users[username].get('class', '')
                 session['truename'] = users[username].get('truename', username)
                 session['major'] = users[username].get('major', '')
@@ -324,21 +445,67 @@ def login():
             logger.warning(f"尝试使用不存在的用户名登录: '{username}'")
             flash('用户名或密码错误。', 'error')
             # Re-render index page with error, pass back username
-            return render_template('index.html', username=username)
+            return redirect(url_for('index')) # 失败后重定向回主页
 
     # Fallback (shouldn't normally be reached for POST)
     return redirect(url_for('index'))
 
 
-# ++++++++ 新增：注册路由占位符 ++++++++
-@app.route('/register', methods=['GET'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    """注册页面 (占位符)"""
-    # 目前只是显示一个信息并重定向回主页
-    # 未来可以在这里渲染注册表单模板
-    flash("注册功能暂未开放，敬请期待！", "请你耐心等待哦～")
+    """处理用户注册的页面显示和表单提交"""
+    # 如果用户已登录，直接重定向到主页
+    if session.get('logged_in'):
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        # 1. 从表单获取所有数据
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        truename = request.form.get('truename', '').strip()
+        major = request.form.get('major', '').strip()
+        employment_day = request.form.get('employment_day').strip()
+
+        # 2. 进行严格的后端验证
+        users = load_user_data()
+
+        if not all([username, password, confirm_password, truename, employment_day]):
+            flash("所有带 * 号的必填项都不能为空。", "error")
+            return redirect(url_for('register'))
+
+        if username in users:
+            flash(f"登录账号 '{username}' 已被占用，请更换一个。", "error")
+            return redirect(url_for('register'))
+
+        if len(password) < 6:
+            flash("密码长度不能少于6位。", "error")
+            return redirect(url_for('register'))
+
+        if password != confirm_password:
+            flash("两次输入的密码不一致。", "error")
+            return redirect(url_for('register'))
+
+        # 3. 验证通过，创建新用户数据
+        new_user_data = {
+            "username": username,
+            "password": generate_password_hash(password),  # 关键：存储哈希后的密码
+            "truename": truename,
+            "major": major,
+            "employment_day": employment_day,
+            "role": "user",  # 默认角色为普通用户
+            "motto": ""  # 初始座右铭为空
+        }
+
+        # 4. 保存新用户
+        users[username] = new_user_data
+        save_data(USER_DATA_FILE, users)
+
+        logger.info(f"新用户 '{username}' ({truename}) 注册成功。")
+        flash("恭喜您，注册成功！现在可以使用新账户登录了。", "success")
+        return redirect(url_for('index'))
+
     return redirect(url_for('index'))
-# +++++++++++++++++++++++++++++++++++++++
 
 
 @app.route('/add_honor', methods=['GET', 'POST'])
@@ -442,31 +609,122 @@ def add_honor():
     return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels)
 
 
+@app.route('/admin/all_honors')
+@login_required
+@admin_required
+def admin_all_honors():
+    """
+    【新增】管理员页面：查看、筛选所有用户的全部荣誉。
+    """
+    logger.info(f"管理员 '{session.get('username')}' 正在访问所有荣誉管理页面")
+
+    try:
+        honors_data = load_honors_data()
+        users_data = load_user_data()
+
+        # 1. 压平所有荣誉到一个列表，并补充教师信息
+        all_honors_raw = []
+        all_majors = set()
+        all_teachers = {}  # {username: truename}
+
+        for username, user_honors in honors_data.items():
+            user_info = users_data.get(username, {})
+            truename = user_info.get('truename', username)
+            major = user_info.get('major', '未指定专业')
+
+            if user_honors:  # 仅将有荣誉记录的教师加入筛选列表
+                all_teachers[username] = truename
+                if major:
+                    all_majors.add(major)
+
+            for honor in user_honors:
+                honor_copy = honor.copy()
+                honor_copy['username'] = username
+                honor_copy['truename'] = truename
+                honor_copy['major'] = major
+                all_honors_raw.append(honor_copy)
+
+        # 2. 服务端筛选 (按时间)
+        selected_date_filter = request.args.get('filter_date', 'all')
+        today = datetime.date.today()
+        cutoff_date = None
+        if selected_date_filter == 'last_year':
+            cutoff_date = today - relativedelta(years=1)
+        elif selected_date_filter == 'last_3_years':
+            cutoff_date = today - relativedelta(years=3)
+        elif selected_date_filter == 'last_5_years':
+            cutoff_date = today - relativedelta(years=5)
+
+        filtered_by_date_honors = []
+        if cutoff_date:
+            for honor in all_honors_raw:
+                honor_date = parse_date_safe(honor.get('date'))
+                if honor_date and honor_date >= cutoff_date:
+                    filtered_by_date_honors.append(honor)
+        else:
+            filtered_by_date_honors = all_honors_raw
+
+        # 3. 按日期倒序排序
+        all_honors_sorted = sorted(
+            filtered_by_date_honors,
+            key=lambda x: parse_date_safe(x.get('date')) or datetime.date.min,
+            reverse=True
+        )
+
+        # 4. 准备数据传递给模板
+        response_data = {
+            'honors': all_honors_sorted,
+            'honor_types': HONOR_TYPE,
+            'honor_levels': LEVEL_TYPE,
+            'all_majors': sorted(list(all_majors)),  # 用于专业筛选
+            'all_teachers': all_teachers,  # 用于教师筛选 {username: truename}
+            'selected_date_filter': selected_date_filter,
+            'username': session.get('username') # 传递当前用户名以兼容layout
+        }
+
+        return render_template('admin/all_honors.html', **response_data)
+
+    except Exception as e:
+        logger.error(f"管理员 '{session.get('username')}' 访问所有荣誉页面时出错: {e}", exc_info=True)
+        flash("加载所有荣誉列表时发生错误。", "error")
+        return redirect(url_for('admin_dashboard'))
+
+
+# --- 【重要】用下面的版本替换掉旧的 edit_honor 和 delete_honor 函数 ---
+
 @app.route('/edit_honor/<string:honor_id>', methods=['POST'])
 @login_required
 def edit_honor(honor_id):
-    # ... (edit_honor 路由保持不变) ...
-    username = session.get('username')
+    """
+    【修改】编辑荣誉记录。
+    增加了权限检查：必须是荣誉的所有者或管理员才能操作。
+    """
+    # 1. 查找荣誉及其所有者
+    honor_to_edit, owner_username = find_honor_and_owner(honor_id)
+
+    if not honor_to_edit:
+        logger.warning(f"用户 '{session.get('username')}' 尝试编辑不存在的荣誉 ID: {honor_id}")
+        return jsonify(success=False, error="无法找到指定的荣誉记录。"), 404
+
+    # 2. 权限验证：必须是所有者或管理员
+    is_admin = session.get('role') == 'admin'
+    is_owner = session.get('username') == owner_username
+    if not is_owner and not is_admin:
+        logger.warning(f"权限不足：用户 '{session.get('username')}' 尝试编辑属于 '{owner_username}' 的荣誉 ID: {honor_id}")
+        return jsonify(success=False, error="您没有权限编辑此条荣誉记录。"), 403
+
+    # 3. 执行编辑操作 (使用 owner_username 定位数据)
     honors_data = load_honors_data()
-    current_upload_folder = os.path.join(UPLOAD_FOLDER, username)
+    current_upload_folder = os.path.join(UPLOAD_FOLDER, owner_username) # 关键：使用荣誉所有者的上传目录
 
-    if username not in honors_data:
-         return jsonify(success=False, error="无法找到用户数据"), 404
+    honor_index = next((i for i, honor in enumerate(honors_data.get(owner_username, [])) if honor.get('id') == honor_id), -1)
 
-    user_honors = honors_data[username]
-    honor_to_edit = None
-    honor_index = -1
-    for i, honor in enumerate(user_honors):
-        if honor.get('id') == honor_id:
-            honor_to_edit = honor
-            honor_index = i
-            break
-
-    if honor_to_edit is None:
-        logger.warning(f"用户 '{username}' 尝试编辑不存在或不属于自己的荣誉 ID: {honor_id}")
-        return jsonify(success=False, error="无法找到指定的荣誉记录，或您无权编辑。"), 404
+    if honor_index == -1:
+        logger.error(f"数据不一致：在用户 '{owner_username}' 的列表中找不到荣誉 ID '{honor_id}'")
+        return jsonify(success=False, error="服务器数据不一致，无法定位荣誉记录。"), 500
 
     try:
+        # (此部分逻辑与原函数基本一致，但确保了操作对象是 owner_username)
         new_name = request.form.get('honor_name')
         new_type = request.form.get('honor_type')
         new_level = request.form.get('honor_level')
@@ -488,11 +746,13 @@ def edit_honor(honor_id):
                     ext = ext.lower()
                     timestamp = int(time.time())
                     rand_int = random.randint(100, 999)
-                    updated_filename = f"{username}_{timestamp}_{rand_int}{ext}"
+                    # 文件名中包含所有者，避免冲突
+                    updated_filename = f"{owner_username}_{timestamp}_{rand_int}{ext}"
                     save_path = os.path.join(current_upload_folder, updated_filename)
                     new_image_file.save(save_path)
-                    logger.info(f"用户 '{username}' 更新荣誉 '{honor_id}' 的新原始图片为 '{updated_filename}'")
+                    logger.info(f"用户 '{session.get('username')}' 为荣誉 '{honor_id}' 上传了新图片 '{updated_filename}'")
 
+                    # (缩略图生成和旧文件删除逻辑保持不变)
                     try:
                         img = Image.open(save_path)
                         img = ImageOps.exif_transpose(img)
@@ -502,23 +762,17 @@ def edit_honor(honor_id):
                         thumb_filename_to_save = f"{thumb_base}_thumb{thumb_ext}"
                         thumb_save_path = os.path.join(current_upload_folder, thumb_filename_to_save)
                         img.save(thumb_save_path, quality=85, optimize=True)
-                        logger.info(f"为新图片 '{updated_filename}' 生成缩略图 '{thumb_filename_to_save}' 成功")
                         img.close()
                     except Exception as thumb_e:
-                        logger.error(f"为新图片 '{updated_filename}' 生成缩略图失败: {thumb_e}", exc_info=True)
+                        logger.error(f"为新图片 '{updated_filename}' 生成缩略图失败: {thumb_e}")
 
                     if old_filename and old_filename != updated_filename:
                         old_path = os.path.join(current_upload_folder, old_filename)
-                        if os.path.exists(old_path):
-                            try: os.remove(old_path); logger.info(f"成功删除旧原始图片: {old_filename}")
-                            except OSError as e: logger.error(f"删除旧原始图片失败 '{old_filename}': {e}")
+                        if os.path.exists(old_path): os.remove(old_path)
                         old_base, old_ext = os.path.splitext(old_filename)
                         old_thumb_filename = f"{old_base}_thumb{old_ext}"
                         old_thumb_path = os.path.join(current_upload_folder, old_thumb_filename)
-                        if os.path.exists(old_thumb_path):
-                            try: os.remove(old_thumb_path); logger.info(f"成功删除旧缩略图: {old_thumb_filename}")
-                            except OSError as e: logger.error(f"删除旧缩略图失败 '{old_thumb_filename}': {e}")
-
+                        if os.path.exists(old_thumb_path): os.remove(old_thumb_path)
                 except Exception as e:
                     logger.error(f"更新荣誉 '{honor_id}' 的图片时处理失败: {e}", exc_info=True)
                     return jsonify(success=False, error=f"图片处理失败: {e}"), 500
@@ -526,114 +780,81 @@ def edit_honor(honor_id):
                 return jsonify(success=False, error="上传了无效的图片格式。请使用 png, jpg, jpeg, gif。"), 400
 
         updated_honor_data = {
-            "id": honor_id,
-            "name": new_name,
-            "type": new_type,
-            "date": new_date,
-            "stamp": new_stamp,
-            "stamp_other": new_stamp_other,
-            "image_filename": updated_filename,
-            "honor_level": new_level
+            "id": honor_id, "name": new_name, "type": new_type, "date": new_date,
+            "stamp": new_stamp, "stamp_other": new_stamp_other,
+            "image_filename": updated_filename, "honor_level": new_level
         }
 
-        honors_data[username][honor_index] = updated_honor_data
+        honors_data[owner_username][honor_index] = updated_honor_data
         save_honors_data(honors_data)
 
-        logger.info(f"用户 '{username}' 成功通过 API 编辑荣誉 ID: {honor_id}")
-        return jsonify(
-            success=True,
-            message=f"荣誉 '{new_name}' 更新成功！",
-            updated_honor=updated_honor_data
-        )
+        logger.info(f"用户 '{session.get('username')}' 成功编辑了属于 '{owner_username}' 的荣誉 ID: {honor_id}")
+        return jsonify(success=True, message=f"荣誉 '{new_name}' 更新成功！")
 
     except Exception as e:
         logger.error(f"编辑荣誉 {honor_id} 时发生未知错误: {e}", exc_info=True)
         return jsonify(success=False, error="更新荣誉时发生内部错误。"), 500
 
 
-@app.route('/uploads/<username>/<path:filename>')
-@login_required
-def uploaded_file_user(username, filename):
-    # ... (uploaded_file_user 路由保持不变) ...
-    if 'username' not in session or session['username'] != username:
-         # if session.get('role') != 'admin': # Optional: Allow admins
-         logger.warning(f"用户 '{session.get('username')}' 尝试访问用户 '{username}' 的文件: {filename}")
-         abort(403)
-
-    user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, username))
-    safe_path = os.path.abspath(os.path.join(user_upload_folder, filename))
-    if not safe_path.startswith(user_upload_folder):
-        logger.warning(f"检测到潜在的路径遍历尝试 (用户: {username}): {filename}")
-        abort(404)
-
-    if not os.path.isdir(user_upload_folder):
-         logger.error(f"用户 '{username}' 的上传目录不存在: {user_upload_folder}")
-         abort(404)
-
-    try:
-        return send_from_directory(user_upload_folder, filename, as_attachment=False)
-    except FileNotFoundError:
-        logger.warning(f"尝试访问用户 '{username}' 不存在的文件: {filename} in {user_upload_folder}")
-        abort(404)
-
 @app.route('/delete_honor/<string:honor_id>', methods=['POST'])
 @login_required
 def delete_honor(honor_id):
-    # ... (delete_honor 路由保持不变) ...
-    username = session.get('username')
+    """
+    【修改】删除荣誉记录。
+    增加了权限检查：必须是荣誉的所有者或管理员才能操作。
+    """
+    # 1. 查找荣誉及其所有者
+    honor_to_delete, owner_username = find_honor_and_owner(honor_id)
+
+    if not honor_to_delete:
+        logger.warning(f"用户 '{session.get('username')}' 尝试删除不存在的荣誉 ID: {honor_id}")
+        flash("无法找到要删除的荣誉记录。", "error")
+        return redirect(request.referrer or url_for('home')) # 重定向上一个页面
+
+    # 2. 权限验证：必须是所有者或管理员
+    is_admin = session.get('role') == 'admin'
+    is_owner = session.get('username') == owner_username
+    if not is_owner and not is_admin:
+        logger.warning(f"权限不足：用户 '{session.get('username')}' 尝试删除属于 '{owner_username}' 的荣誉 ID: {honor_id}")
+        flash("您没有权限删除此条荣誉记录。", "error")
+        return redirect(request.referrer or url_for('home'))
+
+    # 3. 执行删除操作 (使用 owner_username 定位数据)
     honors_data = load_honors_data()
-    current_upload_folder = os.path.join(UPLOAD_FOLDER, username)
+    current_upload_folder = os.path.join(UPLOAD_FOLDER, owner_username) # 关键：使用荣誉所有者的上传目录
 
-    if username not in honors_data:
-        flash("无法找到您的荣誉数据。", "error")
-        return redirect(url_for('home'))
+    honor_index = next((i for i, honor in enumerate(honors_data.get(owner_username, [])) if honor.get('id') == honor_id), -1)
 
-    user_honors = honors_data[username]
-    honor_to_delete = None
-    honor_index = -1
-
-    for i, honor in enumerate(user_honors):
-        if honor.get('id') == honor_id:
-            honor_to_delete = honor
-            honor_index = i
-            break
-
-    if honor_to_delete is None:
-        logger.warning(f"用户 '{username}' 尝试删除不存在或不属于自己的荣誉 ID: {honor_id}")
-        flash("无法找到要删除的荣誉记录，或您无权删除。", "error")
-        return redirect(url_for('home'))
+    if honor_index == -1:
+        logger.error(f"数据不一致：在用户 '{owner_username}' 的列表中找不到荣誉 ID '{honor_id}'")
+        flash("服务器数据不一致，无法删除。", "error")
+        return redirect(request.referrer or url_for('home'))
 
     deleted_honor_name = honor_to_delete.get('name', '未知荣誉')
     image_filename = honor_to_delete.get('image_filename')
 
-    honors_data[username].pop(honor_index)
+    # 从数据文件中移除记录
+    honors_data[owner_username].pop(honor_index)
+    if not honors_data[owner_username]: # 如果列表为空，可以移除该用户键
+        del honors_data[owner_username]
     save_honors_data(honors_data)
 
+    # 删除关联的图片文件 (逻辑保持不变)
     if image_filename:
         original_path = os.path.join(current_upload_folder, image_filename)
-        if os.path.exists(original_path):
-            try:
-                os.remove(original_path)
-                logger.info(f"成功删除原始图片: {image_filename} from {current_upload_folder}")
-            except OSError as e:
-                logger.error(f"删除原始图片失败 '{image_filename}': {e}")
-                flash(f"记录已删除，但删除图片 '{image_filename}' 时遇到问题。", "warning")
-
         base, ext = os.path.splitext(image_filename)
-        thumb_filename_to_delete = f"{base}_thumb{ext}"
-        thumb_path = os.path.join(current_upload_folder, thumb_filename_to_delete)
-        if os.path.exists(thumb_path):
-            try:
-                os.remove(thumb_path)
-                logger.info(f"成功删除缩略图: {thumb_filename_to_delete} from {current_upload_folder}")
-            except OSError as e:
-                logger.error(f"删除缩略图失败 '{thumb_filename_to_delete}': {e}")
-    else:
-        logger.warning(f"荣誉记录 '{honor_id}' 没有关联的 image_filename 字段，无法删除文件。")
+        thumb_path = os.path.join(current_upload_folder, f"{base}_thumb{ext}")
+        for path_to_delete in [original_path, thumb_path]:
+            if os.path.exists(path_to_delete):
+                try:
+                    os.remove(path_to_delete)
+                    logger.info(f"成功删除文件: {path_to_delete}")
+                except OSError as e:
+                    logger.error(f"删除文件失败 '{path_to_delete}': {e}")
 
-    logger.info(f"用户 '{username}' 成功删除荣誉 ID: {honor_id} (名称: {deleted_honor_name})")
-    flash(f"荣誉 '{deleted_honor_name}' 已成功删除。", "success")
-    return redirect(url_for('home'))
+    logger.info(f"用户 '{session.get('username')}' 成功删除了属于 '{owner_username}' 的荣誉 ID: {honor_id} (名: {deleted_honor_name})")
+    flash(f"已成功删除教师 '{owner_username}' 的荣誉: '{deleted_honor_name}'。", "success")
+    return redirect(request.referrer or url_for('home'))
 
 # --- 错误处理 ---
 @app.errorhandler(404)
@@ -649,7 +870,7 @@ def internal_server_error(e):
 @app.route('/honor_table')
 @login_required
 def honor_table():
-    """显示当前登录用户荣誉的表格视图, 支持日期筛选"""
+    """【修改】显示当前登录用户荣誉的表格视图, 支持日期筛选和关键词搜索"""
     current_username = session.get('username')
     if not current_username:
         flash("用户未登录。", "error")
@@ -661,17 +882,17 @@ def honor_table():
         user_data = load_user_data()
         user_honors_list_raw = honors_data.get(current_username, [])
 
+        # --- 1. 获取筛选和搜索参数 ---
         selected_date_filter = request.args.get('filter_date', 'all')
-        logger.info(f"用户 '{current_username}' 使用日期筛选: {selected_date_filter}")
+        search_query = request.args.get('q', '').strip() # 【新增】获取搜索关键词
+        logger.info(f"用户 '{current_username}' 使用日期筛选: {selected_date_filter}, 搜索词: '{search_query}'")
+
+        # --- 2. 按日期筛选 ---
         today = datetime.date.today()
         cutoff_date = None
-        try:
-            if selected_date_filter == 'last_year': cutoff_date = today - relativedelta(years=1)
-            elif selected_date_filter == 'last_3_years': cutoff_date = today - relativedelta(years=3)
-            elif selected_date_filter == 'last_5_years': cutoff_date = today - relativedelta(years=5)
-        except Exception as e:
-            logger.error(f"计算 cutoff_date 时出错: {e}")
-            cutoff_date = None
+        if selected_date_filter == 'last_year': cutoff_date = today - relativedelta(years=1)
+        elif selected_date_filter == 'last_3_years': cutoff_date = today - relativedelta(years=3)
+        elif selected_date_filter == 'last_5_years': cutoff_date = today - relativedelta(years=5)
 
         filtered_by_date_honors = []
         if cutoff_date:
@@ -682,27 +903,36 @@ def honor_table():
         else:
             filtered_by_date_honors = user_honors_list_raw
 
+        # --- 3. 【新增】按关键词搜索 ---
+        if search_query:
+            final_filtered_honors = [
+                honor for honor in filtered_by_date_honors
+                if search_query.lower() in honor.get('name', '').lower()
+            ]
+        else:
+            final_filtered_honors = filtered_by_date_honors
+
+        # --- 4. 数据处理和排序 ---
         processed_honors = []
-        for honor in filtered_by_date_honors:
+        for honor in final_filtered_honors:
             honor_copy = honor.copy()
             honor_copy['display_level'] = honor.get('honor_level') or honor.get('level') or '未指定'
             processed_honors.append(honor_copy)
 
         processed_honors.sort(key=lambda x: parse_date_safe(x.get('date')) or datetime.date.min, reverse=True)
-        logger.info(f"为用户 '{current_username}' 加载了 {len(processed_honors)} 条荣誉记录 (日期筛选: {selected_date_filter})")
+        logger.info(f"为用户 '{current_username}' 加载了 {len(processed_honors)} 条荣誉记录 (日期筛选: {selected_date_filter}, 搜索: '{search_query}')")
 
         current_user_info = user_data.get(current_username, {})
         current_truename = current_user_info.get('truename', current_username)
 
-        try: from config import HONOR_TYPE, LEVEL_TYPE
-        except ImportError:
-            logger.warning("无法从 config.py 导入 HONOR_TYPE 或 LEVEL_TYPE。")
-            HONOR_TYPE, LEVEL_TYPE = [], []
-
+        # --- 5. 准备响应数据 ---
         response_data = {
-            'honors': processed_honors, 'user_truename': current_truename,
+            'honors': processed_honors,
+            'user_truename': current_truename,
             'selected_date_filter': selected_date_filter,
-            'honor_types': HONOR_TYPE, 'honor_levels': LEVEL_TYPE
+            'search_query': search_query, # 【新增】将搜索词传回模板
+            'honor_types': HONOR_TYPE,
+            'honor_levels': LEVEL_TYPE
         }
         return render_template('honor_table.html', **response_data)
 
@@ -887,6 +1117,160 @@ def download_honors_zip():
     except Exception as e:
         logger.error(f"创建荣誉 ZIP 文件时发生错误: {e}", exc_info=True)
         return jsonify(error="创建 ZIP 文件时发生服务器内部错误。"), 500
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    """管理员后台主页，重定向到用户管理页面"""
+    return redirect(url_for('admin_user_management'))
+
+@app.route('/admin/users')
+@login_required
+@admin_required
+def admin_user_management():
+    """显示所有用户的管理页面"""
+    logger.info(f"管理员 '{session.get('username')}' 访问用户管理页面")
+    users_data = load_user_data()
+    # 传递给模板前，移除密码字段，增加安全性
+    users_list_safe = []
+    for username, data in users_data.items():
+        safe_data = data.copy()
+        safe_data.pop('password', None) # 从副本中移除密码
+        users_list_safe.append(safe_data)
+
+    # 按用户名排序
+    users_list_sorted = sorted(users_list_safe, key=lambda x: x['username'])
+
+    return render_template('admin/user_management.html', users=users_list_sorted)
+
+
+@app.route('/admin/user/add', methods=['POST'])
+@login_required
+@admin_required
+def admin_add_user():
+    """管理员添加新用户"""
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password')
+    truename = request.form.get('truename', '').strip()
+    major = request.form.get('major', '').strip()
+    employment_day = request.form.get('employment_day', '').strip()
+    role = request.form.get('role', 'user').strip()
+
+    if not all([username, password, truename, employment_day, role]):
+        flash("所有字段均为必填项。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    if len(password) < 6:
+        flash("密码长度不能少于6位。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users = load_user_data()
+    if username in users:
+        flash(f"用户名 '{username}' 已存在。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users[username] = {
+        "username": username,
+        "password": generate_password_hash(password),
+        "truename": truename,
+        "major": major,
+        "employment_day": employment_day,
+        "role": role,
+        "motto": "" # 初始为空
+    }
+    save_data(USER_DATA_FILE, users)
+    logger.info(f"管理员 '{session.get('username')}' 添加了新用户 '{username}' (角色: {role})")
+    flash(f"用户 '{username}' 添加成功！", "success")
+    return redirect(url_for('admin_user_management'))
+
+
+@app.route('/admin/user/reset_password/<username>', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_password(username):
+    """管理员重置用户密码"""
+    new_password = request.form.get('new_password')
+    if not new_password or len(new_password) < 6:
+        flash("新密码不能为空且长度至少为6位。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users = load_user_data()
+    if username not in users:
+        flash("用户不存在。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users[username]['password'] = generate_password_hash(new_password)
+    save_data(USER_DATA_FILE, users)
+    logger.info(f"管理员 '{session.get('username')}' 重置了用户 '{username}' 的密码。")
+    flash(f"用户 '{username}' 的密码已成功重置！", "success")
+    return redirect(url_for('admin_user_management'))
+
+
+@app.route('/admin/user/change_role/<username>', methods=['POST'])
+@login_required
+@admin_required
+def admin_change_role(username):
+    """管理员修改用户角色"""
+    if username == session.get('username'):
+        flash("出于安全考虑，您不能在此处修改自己的角色。", "warning")
+        return redirect(url_for('admin_user_management'))
+
+    new_role = request.form.get('role')
+    if new_role not in ['user', 'admin']:
+        flash("无效的角色。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users = load_user_data()
+    if username not in users:
+        flash("用户不存在。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    users[username]['role'] = new_role
+    save_data(USER_DATA_FILE, users)
+    logger.info(f"管理员 '{session.get('username')}' 将用户 '{username}' 的角色修改为 '{new_role}'")
+    flash(f"用户 '{username}' 的角色已更新为 '{new_role}'。", "success")
+    return redirect(url_for('admin_user_management'))
+
+
+@app.route('/admin/user/delete/<username>', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_user(username):
+    """管理员删除用户及其所有数据"""
+    if username == session.get('username'):
+        flash("出于安全考虑，您不能删除自己的账户。", "warning")
+        return redirect(url_for('admin_user_management'))
+
+    # 1. 从 user.json 删除用户
+    users = load_user_data()
+    if username not in users:
+        flash("要删除的用户不存在。", "error")
+        return redirect(url_for('admin_user_management'))
+    deleted_user_truename = users.pop(username).get('truename', username)
+    save_data(USER_DATA_FILE, users)
+    logger.info(f"已从用户数据库中删除 '{username}'。")
+
+    # 2. 从 honors.json 删除用户的荣誉
+    honors = load_honors_data()
+    if username in honors:
+        honors.pop(username)
+        save_honors_data(honors)
+        logger.info(f"已删除用户 '{username}' 的所有荣誉记录。")
+
+    # 3. 删除用户的上传文件夹
+    user_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], username)
+    if os.path.exists(user_upload_dir):
+        try:
+            shutil.rmtree(user_upload_dir)
+            logger.info(f"已成功删除用户 '{username}' 的上传目录: {user_upload_dir}")
+        except Exception as e:
+            logger.error(f"删除用户 '{username}' 的目录 '{user_upload_dir}' 时失败: {e}")
+            flash(f"用户信息已删除，但删除文件目录时发生错误: {e}", "error")
+
+    logger.warning(f"管理员 '{session.get('username')}' 删除了用户 '{username}' ({deleted_user_truename}) 及其所有数据。")
+    flash(f"用户 '{deleted_user_truename}' ({username}) 及其所有数据已彻底删除。", "success")
+    return redirect(url_for('admin_user_management'))
 
 
 # --- 主程序入口 ---

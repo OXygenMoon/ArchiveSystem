@@ -1,249 +1,143 @@
 <!DOCTYPE html>
 {% extends "layout.html" %}
 
-{% block title %}我的看板{% endblock %}
+{% block title %}荣誉总览 (管理员){% endblock %}
 
 {% block head_extra %}
 <style>
-    /* --- 布局与通用样式 --- */
-    .honor-section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem; /* 增加与下方内容的间距 */
-        flex-wrap: wrap;
-        gap: 1rem; /* 标题和筛选器之间的间距 */
-    }
+    /* --- 布局与通用样式 (与 home.html 相同) --- */
+    .honor-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
+    .honor-filters-container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+    .honor-filter-container select { min-width: 130px; }
+    .keyword-search-container { display: flex; align-items: center; gap: 0.5rem; flex-grow: 1; max-width: 250px; }
+    .keyword-search-container input { width: 100%; }
+    .card figure img { will-change: transform; }
+    .toast { z-index: 9999 !important; }
 
-    .honor-filters-container {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem; /* 筛选器之间的间距 */
-    }
-
-    .honor-filter-container select {
-        min-width: 130px;
-    }
-
-    /* 【新增】关键词搜索框样式 */
-    .keyword-search-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-grow: 1; /* 在小屏幕上允许其增长 */
-        max-width: 250px;
-    }
-
-    .keyword-search-container input {
-        width: 100%;
-    }
-
-
-    /* --- 个性签名编辑区域样式 --- */
-    #motto-display-area {
-        cursor: pointer;
-        min-height: 2.5rem; /* 预留高度防止编辑按钮出现时布局跳动 */
-    }
-    #motto-display-area .btn {
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-    }
-    #motto-display-area:hover .btn {
-        opacity: 0.7;
-    }
-    #motto-display-area .btn:hover {
-        opacity: 1;
-    }
-    #motto-text {
-        transition: color 0.2s;
-    }
-    #motto-display-area:hover #motto-text {
-        color: hsl(var(--p)); /* 悬停时文本高亮 */
-    }
-
-
-    /* --- 编辑荣誉模态框样式 --- */
+    /* --- 编辑荣誉模态框样式 (与 home.html 相同) --- */
     #edit_honor_modal .modal-box { max-width: 48rem; width: 100%; }
     #edit_honor_modal .modal-content-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; width: 100%; }
     #edit_honor_modal .modal-image-container { display: flex; flex-direction: column; align-items: center; }
     #edit_honor_modal .modal-image-container img { max-width: 100%; max-height: 300px; object-fit: contain; margin-bottom: 1rem; border-radius: 0.375rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
-
-    /* 加载遮罩层 */
     .loading-overlay { position: absolute; inset: 0; background-color: rgba(255, 255, 255, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: inherit; }
-
-    /* 响应式调整 */
     @media (max-width: 768px) {
         #edit_honor_modal .modal-box { max-width: 95%; padding: 1.5rem 1rem; }
         #edit_honor_modal .modal-content-grid { grid-template-columns: 1fr; gap: 1rem; }
         #edit_honor_modal .modal-image-container { order: -1; }
         #edit_honor_modal .modal-image-container img { max-height: 200px; }
-        .keyword-search-container { max-width: none; } /* 在移动端允许搜索框占满宽度 */
+        .keyword-search-container { max-width: none; }
     }
-
-    /* --- 其他微调 --- */
-    .card figure img { will-change: transform; } /* 优化动画性能 */
-    .toast { z-index: 9999 !important; } /* 确保 Toast 在最上层 */
-
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-8">
 
-    {# --- 1. 个人信息与个性签名 Section --- #}
-    <section>
-    <h2 class="text-2xl font-semibold mb-4 divider divider-start">个人信息</h2>
-    <div class="flex flex-col md:flex-row gap-6 bg-base-200 p-6 rounded-lg shadow">
-
-        {# === 左侧：基本信息 (响应式横向排列) === #}
-        <div class="flex-1 flex flex-col sm:flex-row sm:items-baseline gap-6">
-            {# --- 姓名 --- #}
-            <div>
-                <div class="text-sm font-medium text-base-content/70 mb-1">姓名</div>
-                <div class="text-2xl font-bold text-primary">{{ truename or username }}</div>
-            </div>
-
-            {# --- 专业 (带响应式分隔线) --- #}
-            {% if major %}
-            <div class="pt-2 sm:pt-0 sm:pl-6 sm:border-l sm:border-base-300">
-                <div class="text-sm font-medium text-base-content/70 mb-1">专业</div>
-                <div class="text-2xl font-bold text-secondary">{{ major }}</div>
-            </div>
-            {% endif %}
-
-            {# --- 入职时长 (带响应式分隔线) --- #}
-            {% if employment_duration %}
-            <div class="pt-2 sm:pt-0 sm:pl-6 sm:border-l sm:border-base-300">
-                <div class="text-sm font-medium text-base-content/70 mb-1">入职时长</div>
-                <div class="text-2xl font-bold text-accent">{{ employment_duration }}</div>
-            </div>
-            {% endif %}
-        </div>
-
-        {# === 右侧：个性签名 === #}
-        <div class="flex-1 md:border-l md:border-base-300 md:pl-6">
-            <div class="text-sm font-medium text-base-content/70 mb-2">个性签名</div>
-            {# --- 签名显示区域 --- #}
-            <div id="motto-display-area" class="flex items-center group py-1">
-                <span id="motto-text" class="text-base-content/90 mr-2 flex-grow italic" title="点击编辑签名">"{{ motto or '编辑您的个性签名...' }}"</span>
-                <button id="edit-motto-btn" type="button" class="btn btn-ghost btn-xs p-1 focus:opacity-70" title="编辑签名">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
-                </button>
-            </div>
-            {# --- 签名编辑区域 (默认隐藏) --- #}
-            <div id="motto-edit-area" class="hidden">
-                <div class="flex items-center gap-2">
-                    <input type="text" id="motto-input" class="input input-bordered input-sm w-full flex-grow" placeholder="输入签名 (最多100字)" maxlength="100">
-                    <button id="save-motto-btn" type="button" class="btn btn-primary btn-sm">
-                        <span class="loading loading-spinner loading-xs hidden"></span>
-                        保存
-                    </button>
-                    <button id="cancel-motto-btn" type="button" class="btn btn-ghost btn-sm">取消</button>
-                </div>
-                <div id="motto-error" class="text-error text-xs mt-1 h-4"></div>
-            </div>
-        </div>
-    </div>
-</section>
-
-    {# --- 2. 荣誉统计 Section (显示全部时间的统计数据) --- #}
+    {# --- 1. 荣誉统计 Section (显示当前筛选结果的统计数据) --- #}
     <section>
     <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
-        <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计</h2>
-        {# 仅在有统计数据时显示切换按钮 #}
-
+        <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计 (当前视图)</h2>
         <div class="btn-group">
             <button id="stats-toggle-type" class="btn btn-sm btn-active" onclick="switchStatsView('type')">按类型</button>
             <button id="stats-toggle-level" class="btn btn-sm" onclick="switchStatsView('level')">按等级</button>
         </div>
-
     </div>
 
-    {# --- 统计数据展示区 --- #}
-    {# 如果根据时间筛选后没有任何荣誉，显示统一的提示信息 #}
-
-        {# 按类型统计 (默认显示) #}
-        <div id="stats-by-type">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                {# --- 总计卡片 (按类型) --- #}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-type" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {# --- 各类型卡片 --- #}
-                {% for type_name in honor_types %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div> {# 初始值由JS计算 #}
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
+    {# 按类型统计 #}
+    <div id="stats-by-type">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-type" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
             </div>
-        </div>
-        {# 按等级统计 (默认隐藏) #}
-        <div id="stats-by-level" class="hidden">
-             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                {# --- 总计卡片 (按等级) --- #}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-level" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {# --- 各等级卡片 --- #}
-                {% for level_name in honor_levels %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div> {# 初始值由JS计算 #}
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
+            {% for type_name in honor_types %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
             </div>
+            {% endfor %}
         </div>
+    </div>
+    {# 按等级统计 #}
+    <div id="stats-by-level" class="hidden">
+         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-level" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
+            </div>
+            {% for level_name in honor_levels %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    </section>
 
-</section>
-
-    {# --- 3. 荣誉列表与筛选 Section --- #}
+    {# --- 2. 荣誉列表与筛选 Section --- #}
     <section>
         <div class="honor-section-header">
-            {# 动态标题，显示当前时间范围 #}
             {% set filter_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
             {% set filter_text = filter_map.get(selected_date_filter, '全部时间') %}
             <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">
-                我的荣誉记录 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
+                全部荣誉记录 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
             </h2>
 
             {# 筛选器容器 #}
             <div class="honor-filters-container">
-                {# 【新增】关键词搜索框 #}
-                <div class="keyword-search-container" title="按荣誉名称搜索当前列表">
+                {# 关键词搜索框 #}
+                <div class="keyword-search-container" title="按荣誉名称搜索">
                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
                     <input type="text" id="keyword-search-input" class="input input-bordered input-sm w-full" placeholder="搜索荣誉名称..."/>
                 </div>
 
-                {# 时间筛选 (服务端筛选，会重载页面) #}
+                {# 时间筛选 (服务端) #}
                 <div class="honor-filter-container">
-                    <select id="date-filter-select" name="filter_date" class="select select-bordered select-sm w-full max-w-xs" title="按时间范围筛选">
+                    <select id="date-filter-select" name="filter_date" class="select select-bordered select-sm w-full" title="按时间范围筛选">
                         <option value="all" {% if selected_date_filter == 'all' %}selected{% endif %}>全部时间</option>
                         <option value="last_year" {% if selected_date_filter == 'last_year' %}selected{% endif %}>一年内</option>
                         <option value="last_3_years" {% if selected_date_filter == 'last_3_years' %}selected{% endif %}>三年内</option>
                         <option value="last_5_years" {% if selected_date_filter == 'last_5_years' %}selected{% endif %}>五年内</option>
                     </select>
                 </div>
-                {# 仅当当前列表有数据时，才显示客户端筛选器 #}
-                {# 类型筛选 (客户端筛选) #}
+
+                {# 【新增】教师筛选 (客户端) #}
                 <div class="honor-filter-container">
-                    <select id="honor-type-filter" name="honor_type_filter" class="select select-bordered select-sm" title="按类型筛选当前列表">
+                    <select id="user-filter-select" class="select select-bordered select-sm" title="按教师筛选">
+                        <option value="">全部教师</option>
+                        {% for username, truename in all_teachers.items()|sort(attribute=1) %}
+                            <option value="{{ username | escape }}">{{ truename }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# 【新增】专业筛选 (客户端) #}
+                <div class="honor-filter-container">
+                    <select id="major-filter-select" class="select select-bordered select-sm" title="按专业筛选">
+                        <option value="">全部专业</option>
+                        {% for major_option in all_majors %}
+                            <option value="{{ major_option | escape }}">{{ major_option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# 类型筛选 (客户端) #}
+                <div class="honor-filter-container">
+                    <select id="honor-type-filter" class="select select-bordered select-sm" title="按类型筛选">
                         <option value="">全部类型</option>
                         {% for type_option in honor_types %}
                             <option value="{{ type_option | escape }}">{{ type_option }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                {# 等级筛选 (客户端筛选) #}
+                {# 等级筛选 (客户端) #}
                 <div class="honor-filter-container">
-                    <select id="honor-level-filter" name="honor_level_filter" class="select select-bordered select-sm" title="按等级筛选当前列表">
+                    <select id="honor-level-filter" class="select select-bordered select-sm" title="按等级筛选">
                         <option value="">全部等级</option>
                         {% for level_option in honor_levels %}
                             <option value="{{ level_option | escape }}">{{ level_option }}</option>
@@ -251,9 +145,7 @@
                     </select>
                 </div>
 
-                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置筛选
-                </button>
-
+                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置筛选</button>
             </div>
         </div>
 
@@ -261,26 +153,32 @@
         {% if honors %}
             <div id="honors-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 mt-4">
                 {% for honor in honors %}
-                    {# *** 关键：统一处理 level / honor_level 兼容问题 *** #}
                     {% set current_level = honor.honor_level or honor.level %}
                     <div id="card-{{ honor.id }}"
                          class="card bg-base-100 shadow-xl transition-shadow duration-300 hover:shadow-2xl group overflow-hidden"
                          data-type="{{ honor.type | escape }}"
                          data-level="{{ current_level | default('', true) | escape }}"
                          data-name="{{ honor.name | escape }}"
-                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}')">
-                        {# 设定图片容器，防止图片加载时布局跳动 #}
-                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200" onclick="showImageModal('{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}', '{{ honor.name | escape | replace("'", "\\'") }}')">
+                         data-user="{{ honor.username | escape }}"  {# 新增 #}
+                         data-major="{{ honor.major | escape }}"  {# 新增 #}
+                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}')">
+                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200" onclick="showImageModal('{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}', '{{ honor.name | escape | replace("'", "\\'") }}')">
                             {% set parts = honor.image_filename.rsplit('.', 1) %}
                             {% set thumb_filename = parts[0] + '_thumb.' + parts[1] if parts|length == 2 else honor.image_filename %}
                             <img id="img-thumb-{{ honor.id }}"
-                                 src="{{ url_for('uploaded_file_user', username=username, filename=thumb_filename) }}"
+                                 src="{{ url_for('uploaded_file_user', username=honor.username, filename=thumb_filename) }}"
                                  alt="{{ honor.name }} 缩略图" loading="lazy"
                                  class="transition-transform duration-300 group-hover:scale-110 object-cover h-full w-full"
-                                 onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}';" />
+                                 onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}';" />
                         </figure>
                         <div class="card-body p-4">
+                            {# 【新增】显示教师信息 #}
+                            <div class="text-xs text-base-content/60 mb-2">
+                                <span class="font-semibold text-primary">{{ honor.truename }}</span> / {{ honor.major }}
+                            </div>
+
                             <h3 id="card-title-{{ honor.id }}" class="card-title text-base lg:text-lg font-semibold truncate" title="{{ honor.name }}">{{ honor.name }}</h3>
+
                             <div class="text-sm text-base-content/80 space-y-1 mt-2">
                                 <p><span class="font-medium text-base-content/60">类型:</span> <span id="card-type-{{ honor.id }}">{{ honor.type }}</span></p>
                                 {% if current_level %}
@@ -290,7 +188,7 @@
                                 <p><span class="font-medium text-base-content/60">单位:</span> <span id="card-stamp-{{ honor.id }}" title="{{ honor.stamp }}">{{ honor.stamp | truncate(20) }}</span></p>
                             </div>
                             <div class="card-actions justify-end mt-3 items-center space-x-2">
-                                {# 编辑按钮：通过 data-* 属性传递所有需要的数据 #}
+                                {# 编辑按钮 #}
                                 <button type="button" id="edit-btn-{{ honor.id }}" class="btn btn-xs sm:btn-sm btn-outline btn-primary" title="编辑"
                                         onclick="openEditModal(this)"
                                         data-id="{{ honor.id }}"
@@ -300,12 +198,12 @@
                                         data-date="{{ honor.date }}"
                                         data-stamp="{{ honor.stamp | escape }}"
                                         data-stamp-other="{{ honor.stamp_other | default('', true) | escape }}"
-                                        data-image-url="{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}">
+                                        data-image-url="{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                                     <span class="hidden sm:inline ml-1">编辑</span>
                                 </button>
-                                {# 删除按钮：使用表单提交，并添加二次确认 #}
-                                <form method="post" action="{{ url_for('delete_honor', honor_id=honor.id) }}" onsubmit="return confirm('警告：您确定要永久删除 “{{ honor.name | escape | replace("'", "\\'") }}” 这条荣誉记录吗？\n\n此操作将同时删除关联的图片文件，且无法撤销！');" style="display: inline;">
+                                {# 删除按钮 #}
+                                <form method="post" action="{{ url_for('delete_honor', honor_id=honor.id) }}" onsubmit="return confirm('警告：您确定要永久删除教师 “{{ honor.truename }}” 的 “{{ honor.name | escape | replace("'", "\\'") }}” 这条荣誉记录吗？\n\n此操作无法撤销！');" style="display: inline;">
                                     <button type="submit" class="btn btn-xs sm:btn-sm btn-outline btn-secondary" title="删除">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                         <span class="hidden sm:inline ml-1">删除</span>
@@ -316,20 +214,19 @@
                     </div>
                 {% endfor %}
             </div>
-            {# 当客户端筛选后无结果时显示的消息 #}
+            {# 客户端筛选后无结果的消息 #}
             <div id="no-honors-message" class="alert alert-warning mt-6 shadow-md hidden" role="alert">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 <span>在当前列表（{{ filter_text }}）中，未找到符合所选条件的荣誉记录。</span>
                 <button class="btn btn-sm btn-ghost" onclick="resetClientFilters()">重置筛选</button>
             </div>
-
         {% else %}
              <div class="alert alert-info mt-6 shadow-md">
                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                  {% if selected_date_filter != 'all' %}
-                    <span>在选定的时间范围（{{ filter_text }}）内没有荣誉记录。请尝试选择 <a href="{{ url_for('home', filter_date='all') }}" class="link link-primary">全部时间</a> 或 <a href="{{ url_for('add_honor') }}" class="link link-secondary">添加一条新荣誉</a>。</span>
+                    <span>在选定的时间范围（{{ filter_text }}）内没有任何荣誉记录。请尝试选择 <a href="{{ url_for('admin_all_honors', filter_date='all') }}" class="link link-primary">全部时间</a>。</span>
                  {% else %}
-                    <span>您还没有添加任何荣誉记录。现在就去 <a href="{{ url_for('add_honor') }}" class="link link-primary">添加第一条</a> 吧！</span>
+                    <span>系统中还没有任何荣誉记录。</span>
                  {% endif %}
             </div>
         {% endif %}
@@ -338,30 +235,22 @@
 </div>
 
 {# ====================================================== #}
-{# ================= MODAL DEFINITIONS ================== #}
+{# ================= MODAL DEFINITIONS (与 home.html 几乎相同) ================== #}
 {# ====================================================== #}
 
 {# --- 编辑荣誉 Modal --- #}
 <dialog id="edit_honor_modal" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box relative">
-        {# Loading 遮罩层 #}
-        <div id="edit_modal_loading" class="loading-overlay hidden">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
-        </div>
-
+        <div id="edit_modal_loading" class="loading-overlay hidden"><span class="loading loading-spinner loading-lg text-primary"></span></div>
         <div class="modal-content-grid">
-            {# 左侧图片展示 #}
             <div class="modal-image-container">
                 <img id="edit_modal_image" src="" alt="当前荣誉图片" />
                 <span class="text-xs text-base-content/60 mt-2">当前图片</span>
             </div>
-            {# 右侧编辑表单 #}
             <div class="modal-form-container">
                 <form id="edit_honor_form" class="space-y-3">
                     <h3 class="font-bold text-lg mb-3 text-center md:text-left">编辑荣誉信息</h3>
                     <input type="hidden" id="edit_honor_id" name="honor_id">
-
-                    {# 各个表单字段 #}
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_name"><span class="label-text font-medium">荣誉名称 <span class="text-error">*</span></span></label>
                         <input type="text" id="edit_honor_name" name="honor_name" class="input input-sm input-bordered w-full" required />
@@ -397,10 +286,7 @@
                         <input type="file" id="edit_honor_image_file" name="honor_image" class="file-input file-input-sm file-input-bordered file-input-secondary w-full" accept="image/png, image/jpeg, image/gif" />
                         <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图</span></label>
                     </div>
-
-                    {# 错误信息显示区域 #}
                     <div id="edit_modal_error" class="text-error text-sm mt-2 hidden min-h-[1.25rem]"></div>
-                    {# 操作按钮 #}
                     <div class="modal-action mt-4 justify-end space-x-2">
                         <button type="button" class="btn btn-sm btn-ghost" onclick="closeEditModal()">取消</button>
                         <button type="submit" class="btn btn-sm btn-primary">确认修改</button>
@@ -410,14 +296,10 @@
         </div>
         <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="closeEditModal()">✕</button>
     </div>
-    {# 点击背景关闭 Modal #}
     <form method="dialog" class="modal-backdrop">
         <button type="button" onclick="closeEditModal()">close</button>
     </form>
 </dialog>
-
-
-
 
 {# --- 全局成功提示 Toast --- #}
 <div id="toast-success" class="toast toast-top toast-center hidden">
@@ -426,7 +308,6 @@
         <span id="toast-success-message">操作成功！</span>
     </div>
 </div>
-
 {% endblock %}
 
 
@@ -435,56 +316,32 @@
 {# ====================================================== #}
 {% block scripts %}
 <script>
-
-// 鼠标悬停预加载
-    const preloadedImages = new Set();
-
-    function preloadImage(url) {
-        // 如果这个URL的图片还没开始加载
-        if (!preloadedImages.has(url)) {
-            // 创建一个新的Image对象，把它当成一个看不见的<img>标签
-            const img = new Image();
-            // 将它的src指向我们的大图URL，浏览器就会开始下载
-            img.src = url;
-            // 将URL添加到集合中，标记为已开始加载
-            preloadedImages.add(url);
-            // console.log('Preloading image:', url); // (调试用，可以删除)
-        }
+// 鼠标悬停预加载图片
+const preloadedImages = new Set();
+function preloadImage(url) {
+    if (!preloadedImages.has(url)) {
+        const img = new Image();
+        img.src = url;
+        preloadedImages.add(url);
     }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded and parsed. Initializing scripts.");
-
-    // ==========================================================
-    // --- 全局 DOM 元素引用 (移到最前面以避免初始化错误) ---
-    // ==========================================================
-    // 个性签名
-    const mottoDisplayArea = document.getElementById('motto-display-area');
-    const mottoTextSpan = document.getElementById('motto-text');
-    const mottoEditArea = document.getElementById('motto-edit-area');
-    const mottoInput = document.getElementById('motto-input');
-    const saveMottoBtn = document.getElementById('save-motto-btn');
-    const cancelMottoBtn = document.getElementById('cancel-motto-btn');
-    const mottoErrorDiv = document.getElementById('motto-error');
-    const saveMottoLoading = saveMottoBtn ? saveMottoBtn.querySelector('.loading') : null;
-
-    // 荣誉统计
+    // --- 全局 DOM 元素引用 ---
     const statsByTypeDiv = document.getElementById('stats-by-type');
     const statsByLevelDiv = document.getElementById('stats-by-level');
     const statsToggleTypeBtn = document.getElementById('stats-toggle-type');
     const statsToggleLevelBtn = document.getElementById('stats-toggle-level');
     const statsTotalCountType = document.getElementById('stats-total-count-type');
     const statsTotalCountLevel = document.getElementById('stats-total-count-level');
-
-    // 荣誉列表筛选
     const dateFilterSelect = document.getElementById('date-filter-select');
-    const keywordSearchInput = document.getElementById('keyword-search-input'); // 【新增】
+    const keywordSearchInput = document.getElementById('keyword-search-input');
     const honorTypeFilterSelect = document.getElementById('honor-type-filter');
     const honorLevelFilterSelect = document.getElementById('honor-level-filter');
+    const majorFilterSelect = document.getElementById('major-filter-select'); // 【新增】
+    const userFilterSelect = document.getElementById('user-filter-select');   // 【新增】
     const honorsGrid = document.getElementById('honors-grid');
     const noHonorsMessage = document.getElementById('no-honors-message');
-
-    // 编辑荣誉 Modal
     const editModal = document.getElementById('edit_honor_modal');
     const editForm = document.getElementById('edit_honor_form');
     const editModalError = document.getElementById('edit_modal_error');
@@ -498,73 +355,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const editHonorStampOtherInput = document.getElementById('edit_honor_stamp_other');
     const editHonorImageInput = document.getElementById('edit_honor_image_file');
     const editModalImage = document.getElementById('edit_modal_image');
-
-    // 图片放大 Modal 和 Toast
-    const imageModal = document.getElementById('image_modal');
-    const modalImage = document.getElementById('modal_image');
-    const modalTitle = document.getElementById('modal_title');
     const successToast = document.getElementById('toast-success');
     const successToastMessage = document.getElementById('toast-success-message');
 
-    // ==========================================================
-    // --- 函数定义部分 ---
-    // ==========================================================
+    // --- 函数定义 ---
 
-    // --- 1. 个性签名 (Motto) 功能 ---
-    const enterEditMottoMode = () => {
-        if (!mottoDisplayArea || !mottoEditArea || !mottoInput) return;
-        mottoDisplayArea.classList.add('hidden');
-        mottoEditArea.classList.remove('hidden');
-        const currentText = mottoTextSpan.textContent.replace(/"/g, '').trim();
-        mottoInput.value = currentText === '编辑您的个性签名...' ? '' : currentText;
-        mottoInput.focus();
-        if(mottoErrorDiv) mottoErrorDiv.textContent = '';
-    };
-
-    const exitEditMottoMode = () => {
-        if (!mottoDisplayArea || !mottoEditArea) return;
-        mottoEditArea.classList.add('hidden');
-        mottoDisplayArea.classList.remove('hidden');
-        if(mottoErrorDiv) mottoErrorDiv.textContent = '';
-        if (saveMottoLoading) saveMottoLoading.classList.add('hidden');
-        if (saveMottoBtn) saveMottoBtn.disabled = false;
-    };
-
-    const saveMotto = async () => {
-        if (!mottoInput || !saveMottoBtn || !mottoErrorDiv) return;
-        const newMotto = mottoInput.value.trim();
-        if (saveMottoLoading) saveMottoLoading.classList.remove('hidden');
-        saveMottoBtn.disabled = true;
-        mottoErrorDiv.textContent = '';
-        try {
-            const response = await fetch('/update_motto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ motto: newMotto })
-            });
-            const result = await response.json();
-            if (response.ok && result.success) {
-                if (mottoTextSpan) {
-                    mottoTextSpan.textContent = `"${result.new_motto || '编辑您的个性签名...'}"`;
-                }
-                exitEditMottoMode();
-                showSuccessToast(result.message || '签名更新成功！');
-            } else {
-                const errorMsg = result.error || `保存失败 (${response.status})。`;
-                mottoErrorDiv.textContent = errorMsg;
-            }
-        } catch (error) {
-            console.error('Save motto error:', error);
-            mottoErrorDiv.textContent = '网络错误，请稍后重试。';
-        } finally {
-            if (saveMottoLoading) saveMottoLoading.classList.add('hidden');
-            if (saveMottoBtn) saveMottoBtn.disabled = false;
-        }
-    };
-
-    // --- 2. 荣誉统计与列表筛选 ---
+    // 切换统计视图
     window.switchStatsView = (viewType) => {
-        localStorage.setItem('statsView', viewType);
+        localStorage.setItem('adminStatsView', viewType);
         if (!statsByTypeDiv || !statsByLevelDiv || !statsToggleTypeBtn || !statsToggleLevelBtn) return;
         const isTypeView = viewType === 'type';
         statsByTypeDiv.classList.toggle('hidden', !isTypeView);
@@ -573,85 +371,55 @@ document.addEventListener('DOMContentLoaded', () => {
         statsToggleLevelBtn.classList.toggle('btn-active', !isTypeView);
     };
 
-    function applySavedStatsView() {
-        const savedView = localStorage.getItem('statsView');
-        if (savedView === 'level') {
-            switchStatsView('level');
-        } else {
-            switchStatsView('type');
-        }
-    }
-
-    const applySavedFilters = () => {
-        const savedKeyword = localStorage.getItem('honorFilterKeyword'); // 【新增】
-        if (keywordSearchInput && savedKeyword) {
-            keywordSearchInput.value = savedKeyword;
-        }
-        const savedType = localStorage.getItem('honorFilterType');
-        if (honorTypeFilterSelect && savedType) {
-            honorTypeFilterSelect.value = savedType;
-        }
-        const savedLevel = localStorage.getItem('honorFilterLevel');
-        if (honorLevelFilterSelect && savedLevel) {
-            honorLevelFilterSelect.value = savedLevel;
-        }
-    };
-
+    // 更新统计面板的数字
     const updateDynamicStats = (typeCounts, levelCounts, totalCount) => {
         if (statsTotalCountType) statsTotalCountType.textContent = totalCount;
         if (statsTotalCountLevel) statsTotalCountLevel.textContent = totalCount;
-
-        if (statsByTypeDiv) {
-            document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(statCard => {
-                const typeName = statCard.dataset.statType;
-                const countEl = statCard.querySelector('.stat-count');
-                const count = typeCounts[typeName] || 0;
-                if (countEl) {
-                    countEl.textContent = count;
-                    countEl.classList.toggle('text-accent', count > 0);
-                    countEl.classList.toggle('text-base-content/30', count === 0);
-                }
-            });
-        }
-
-        if (statsByLevelDiv) {
-            document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(statCard => {
-                const levelName = statCard.dataset.statLevel;
-                const countEl = statCard.querySelector('.stat-count');
-                const count = levelCounts[levelName] || 0;
-                 if (countEl) {
-                    countEl.textContent = count;
-                    countEl.classList.toggle('text-accent', count > 0);
-                    countEl.classList.toggle('text-base-content/30', count === 0);
-                }
-            });
-        }
+        document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(card => {
+            const typeName = card.dataset.statType;
+            const countEl = card.querySelector('.stat-count');
+            const count = typeCounts[typeName] || 0;
+            if (countEl) {
+                countEl.textContent = count;
+                countEl.classList.toggle('text-accent', count > 0);
+                countEl.classList.toggle('text-base-content/30', count === 0);
+            }
+        });
+        document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(card => {
+            const levelName = card.dataset.statLevel;
+            const countEl = card.querySelector('.stat-count');
+            const count = levelCounts[levelName] || 0;
+            if (countEl) {
+                countEl.textContent = count;
+                countEl.classList.toggle('text-accent', count > 0);
+                countEl.classList.toggle('text-base-content/30', count === 0);
+            }
+        });
     };
 
-
     /**
-     * 【修改】核心函数：应用客户端筛选，并触发统计更新
+     * 【核心】应用所有客户端筛选，并触发统计更新
      */
     const applyClientFilters = () => {
         if (!honorsGrid) return;
-
-        const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : ""; // 【新增】
+        const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
         const selectedType = honorTypeFilterSelect ? honorTypeFilterSelect.value : "";
         const selectedLevel = honorLevelFilterSelect ? honorLevelFilterSelect.value : "";
+        const selectedMajor = majorFilterSelect ? majorFilterSelect.value : ""; // 【新增】
+        const selectedUser = userFilterSelect ? userFilterSelect.value : "";     // 【新增】
         const honorCards = honorsGrid.querySelectorAll('.card');
-
         let visibleCount = 0;
         const typeCounts = {};
         const levelCounts = {};
 
-        // 遍历卡片，进行筛选和计数
         honorCards.forEach(card => {
-            const honorName = card.dataset.name.toLowerCase(); // 【新增】
-            const nameMatch = !keyword || honorName.includes(keyword); // 【新增】
+            const nameMatch = !keyword || card.dataset.name.toLowerCase().includes(keyword);
             const typeMatch = !selectedType || card.dataset.type === selectedType;
             const levelMatch = !selectedLevel || card.dataset.level === selectedLevel;
+            const majorMatch = !selectedMajor || card.dataset.major === selectedMajor; // 【新增】
+            const userMatch = !selectedUser || card.dataset.user === selectedUser;   // 【新增】
 
-            if (nameMatch && typeMatch && levelMatch) { // 【修改】
+            if (nameMatch && typeMatch && levelMatch && majorMatch && userMatch) { // 【修改】
                 card.style.display = '';
                 visibleCount++;
                 const cardType = card.dataset.type;
@@ -663,30 +431,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 更新“无结果”提示信息
         if (noHonorsMessage) {
-            const isFiltering = keyword || selectedType || selectedLevel;
+            const isFiltering = keyword || selectedType || selectedLevel || selectedMajor || selectedUser;
             noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
         }
-
-        // 调用新函数来更新统计面板
         updateDynamicStats(typeCounts, levelCounts, visibleCount);
     };
 
-    // 【修改】此函数只重置客户端筛选器
+    // 重置客户端筛选器
     window.resetClientFilters = () => {
         if (keywordSearchInput) keywordSearchInput.value = "";
         if (honorTypeFilterSelect) honorTypeFilterSelect.value = "";
         if (honorLevelFilterSelect) honorLevelFilterSelect.value = "";
-        localStorage.removeItem('honorFilterKeyword');
-        localStorage.removeItem('honorFilterType');
-        localStorage.removeItem('honorFilterLevel');
-        applyClientFilters(); // 重置后也要重新计算和应用
+        if (majorFilterSelect) majorFilterSelect.value = ""; // 【新增】
+        if (userFilterSelect) userFilterSelect.value = "";   // 【新增】
+        localStorage.removeItem('adminHonorFilterKeyword');
+        localStorage.removeItem('adminHonorFilterType');
+        localStorage.removeItem('adminHonorFilterLevel');
+        localStorage.removeItem('adminHonorFilterMajor'); // 【新增】
+        localStorage.removeItem('adminHonorFilterUser');  // 【新增】
+        applyClientFilters();
     };
 
-    // --- 3. 编辑荣誉 Modal 功能 ---
+    // 从 localStorage 恢复筛选器状态
+    const applySavedFilters = () => {
+        if (keywordSearchInput) keywordSearchInput.value = localStorage.getItem('adminHonorFilterKeyword') || '';
+        if (honorTypeFilterSelect) honorTypeFilterSelect.value = localStorage.getItem('adminHonorFilterType') || '';
+        if (honorLevelFilterSelect) honorLevelFilterSelect.value = localStorage.getItem('adminHonorFilterLevel') || '';
+        if (majorFilterSelect) majorFilterSelect.value = localStorage.getItem('adminHonorFilterMajor') || '';
+        if (userFilterSelect) userFilterSelect.value = localStorage.getItem('adminHonorFilterUser') || '';
+    };
+
+    // 编辑模态框功能
     window.openEditModal = (button) => {
-        if (!editModal || !editForm) return alert("编辑窗口加载失败！");
+        if (!editModal || !editForm) return;
         editForm.reset();
         if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
         if (editModalLoading) editModalLoading.classList.add('hidden');
@@ -704,57 +482,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         editModal.showModal();
     };
+    window.closeEditModal = () => { if (editModal) editModal.close(); };
 
-    window.closeEditModal = () => {
-        if (editModal) editModal.close();
-    };
-
-    // --- 4. 全局功能函数 (Toast, 图片放大) ---
+    // 全局功能函数
     const showSuccessToast = (message) => {
         if (!successToast || !successToastMessage) return;
         successToastMessage.textContent = message;
         successToast.classList.remove('hidden');
         setTimeout(() => successToast.classList.add('hidden'), 3000);
     };
-
     window.showImageModal = (imageUrl, imageTitle) => {
-        // Fallback for missing elements, just open the image in a new tab
-        if (typeof image_modal === 'undefined' || !image_modal) {
-             window.open(imageUrl, '_blank');
-             return;
-        }
-        const modalImgEl = document.getElementById('modal_image');
-        const modalTitleEl = document.getElementById('modal_title');
-        if (modalImgEl) modalImgEl.src = imageUrl;
-        if (modalTitleEl) modalTitleEl.textContent = imageTitle || '图片详情';
+        if (typeof image_modal === 'undefined' || !image_modal) { window.open(imageUrl, '_blank'); return; }
+        document.getElementById('modal_image').src = imageUrl;
+        document.getElementById('modal_title').textContent = imageTitle || '图片详情';
         image_modal.showModal();
     };
 
 
-    // ==========================================================
-    // --- 页面加载后的初始化调用和事件绑定 ---
-    // ==========================================================
-
-    // 1. 应用保存的视图和筛选器状态
-    applySavedStatsView();
+    // --- 页面加载后的初始化与事件绑定 ---
+    const savedStatsView = localStorage.getItem('adminStatsView');
+    switchStatsView(savedStatsView === 'level' ? 'level' : 'type');
     applySavedFilters();
-
-    // 2. 根据当前(可能已恢复的)筛选器值，执行一次客户端筛选和动态统计（关键！）
-    applyClientFilters();
+    applyClientFilters(); // 关键！页面加载时执行一次筛选
 
     // --- 事件绑定 ---
-    // 个性签名事件
-    if (mottoDisplayArea) mottoDisplayArea.addEventListener('click', enterEditMottoMode);
-    if (cancelMottoBtn) cancelMottoBtn.addEventListener('click', exitEditMottoMode);
-    if (saveMottoBtn) saveMottoBtn.addEventListener('click', saveMotto);
-    if (mottoInput) {
-        mottoInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); saveMotto(); }
-            if (e.key === 'Escape') exitEditMottoMode();
+    const addFilterListener = (element, storageKey) => {
+        if(element) element.addEventListener('input', () => { // 用 'input' 捕获实时变化
+             localStorage.setItem(storageKey, element.value);
+             applyClientFilters();
         });
-    }
+    };
+    addFilterListener(keywordSearchInput, 'adminHonorFilterKeyword');
+    addFilterListener(honorTypeFilterSelect, 'adminHonorFilterType');
+    addFilterListener(honorLevelFilterSelect, 'adminHonorFilterLevel');
+    addFilterListener(majorFilterSelect, 'adminHonorFilterMajor');
+    addFilterListener(userFilterSelect, 'adminHonorFilterUser');
 
-    // 筛选事件
     if (dateFilterSelect) {
         dateFilterSelect.addEventListener('change', (e) => {
             const currentUrl = new URL(window.location.href);
@@ -763,44 +526,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 【新增】关键词搜索事件
-    if (keywordSearchInput) {
-        keywordSearchInput.addEventListener('input', () => {
-             localStorage.setItem('honorFilterKeyword', keywordSearchInput.value);
-             applyClientFilters();
-        });
-    }
-
-    if (honorTypeFilterSelect) {
-        honorTypeFilterSelect.addEventListener('change', () => {
-            localStorage.setItem('honorFilterType', honorTypeFilterSelect.value);
-            applyClientFilters();
-        });
-    }
-    if (honorLevelFilterSelect) {
-        honorLevelFilterSelect.addEventListener('change', () => {
-            localStorage.setItem('honorFilterLevel', honorLevelFilterSelect.value);
-            applyClientFilters();
-        });
-    }
-
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     if (resetFiltersBtn) {
-        // 【修改】重置按钮行为：现在重置所有筛选（包括客户端和服务器端）
         resetFiltersBtn.addEventListener('click', () => {
-            localStorage.removeItem('honorFilterKeyword');
-            localStorage.removeItem('honorFilterType');
-            localStorage.removeItem('honorFilterLevel');
+            resetClientFilters(); // 先重置客户端
+            // 然后跳转到清除了服务端筛选的URL
             const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('filter_date', 'all');
-            // 跳转到完全重置的URL
-            window.location.href = currentUrl.toString();
+            if(currentUrl.searchParams.get('filter_date') !== 'all'){
+                 currentUrl.searchParams.set('filter_date', 'all');
+                 window.location.href = currentUrl.toString();
+            }
         });
     }
 
-
-
-    // 编辑表单提交事件
+    // 编辑表单提交
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -811,9 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(editForm);
             try {
                 const response = await fetch(`/edit_honor/${honorId}`, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
+                    method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
                 });
                 const result = await response.json();
                 if (response.ok && result.success) {
@@ -821,14 +558,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     showSuccessToast(result.message || '更新成功！页面即将刷新...');
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    const errorMsg = result.error || `更新失败 (${response.status})。请检查输入内容。`;
-                    if(editModalError) {
-                        editModalError.textContent = errorMsg;
-                        editModalError.classList.remove('hidden');
-                    }
+                    const errorMsg = result.error || `更新失败 (${response.status})。`;
+                    if(editModalError) { editModalError.textContent = errorMsg; editModalError.classList.remove('hidden'); }
                 }
             } catch (error) {
-                console.error('Submit edit form error:', error);
                 if(editModalError) {
                     editModalError.textContent = '请求失败，请检查网络连接。';
                     editModalError.classList.remove('hidden');

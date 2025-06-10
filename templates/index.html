@@ -1,108 +1,192 @@
 <!DOCTYPE html>
-<html data-theme="cupcake"> <head>
-    <meta charset="UTF-8" />
-    <title>登录 - 个人成就系统</title> <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.tailwindcss.com"></script> <style>
-      /* Minimal custom styles */
-      body {
-        font-family: sans-serif; /* Keep sans-serif */
-        min-height: 100vh; /* Ensure body takes full height */
-      background-image: url(https://w.wallhaven.cc/full/6d/wallhaven-6d8wgq.png);
-        /* Removed background image - using DaisyUI utility class now */
-      }
-      /* Style for fade-out animation */
-      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+<html data-theme="cupcake">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欢迎 - 个人成就系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet" type="text/css"/>
+    <script src="https://cdn.tailwindcss.com"></script>
 
-      /* Optional: Slightly dim the icon color if needed, but utility class is preferred */
-      /* .input-icon-color { color: hsl(var(--bc) / 0.5); } */
-      .body-bg {
-
-      }
+    <style>
+        /* 自定义背景和样式 */
+        .hero-background {
+            background-image: url('https://w.wallhaven.cc/full/3q/wallhaven-3qko16.png');
+            background-size: cover;
+            background-position: center;
+        }
     </style>
 </head>
+<body>
 
-<body class="body-bg bg-base-200">
-    <div class="hero min-h-screen flex items-center justify-center ">
-        <div class="hero-content flex-col text-center w-full max-w-md px-4">
-
-            <div class="w-full">
-                <div id="initial-content" class="{{ 'hidden' if show_login_form else '' }} text-base-content"> <h1 class="mb-4 text-4xl font-bold">{{ msg or '欢迎来到个人成就系统' }}</h1>
-                    <p class="mb-4 prose max-w-none">记录、展示和管理您的个人成就与荣誉。请登录或注册以开始使用。</p> <a href="#" id="show-login-btn" class="btn btn-outline btn-primary">立即登录</a> <a href="{{ url_for('register') }}" class="btn btn-outline btn-secondary ml-2">注册账号</a>
-                </div>
-
-                <div id="login-form-container" class="{{ '' if show_login_form else 'hidden' }} w-full">
-                    <div class="card w-full shadow-xl bg-base-100 rounded-lg overflow-hidden">
-                         <div class="p-4 sm:p-6 text-primary-content"> <h1 class="card-title justify-center text-xl sm:text-2xl font-semibold">用户登录</h1>
-                        </div>
-
-                        <div class="card-body p-6 sm:p-8 text-base-content"> <form action="{{ url_for('login') }}" method="POST">
-                                <div class="form-control w-full">
-                                    <label class="label" for="name"><span class="label-text text-base-content text-opacity-80">账号:</span></label>
-                                    <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-base-content opacity-50"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                                              <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.41-1.412A9.994 9.994 0 0 0 10 12c-2.31 0-4.438.784-6.131 2.1-.43.333-.604.903-.41 1.412Z" />
-                                            </svg>
-                                        </span>
-                                        <input type="text" id="name" name="name" placeholder="请输入账号" class="input input-bordered w-full pl-10 focus:input-primary" required value="{{ username or '' }}" />
-                                    </div>
-                                </div>
-
-                                <div class="form-control w-full mt-4">
-                                    <label class="label" for="password"><span class="label-text text-base-content text-opacity-80">密码:</span></label>
-                                    <div class="relative">
-                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-base-content opacity-50"> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                                              <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd" />
-                                            </svg>
-                                        </span>
-                                        <input type="password" id="password" name="password" placeholder="请输入密码" class="input input-bordered w-full pl-10 focus:input-primary" required />
-                                    </div>
-                                 </div>
-
-                            <form>
-                                <div class="mt-6 sm:mt-8">
-                                    <div class="flex flex-col items-center space-y-3 w-full">
-                                        <button type="submit" class="btn btn-primary btn-wide">登录</button>
-                                        <button type="button" id="cancel-login-btn" class="btn btn-secondary btn-wide">取消</button>
-                                    </div>
-                                </div>
-                            </form>
-
-                            <div class="divider my-4 sm:my-6 text-base-content text-opacity-60">或</div>
-
-                            <div class="text-center">
-                                <span class="text-sm text-base-content opacity-80">还没有账号？</span>
-                                <a href="{{ url_for('register') }}" class="link link-secondary text-sm font-medium">立即注册</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+{# --- 1. 主页面内容 (带背景) --- #}
+<div class="hero min-h-screen hero-background">
+    <div class="hero-overlay bg-opacity-60"></div>
+    <div class="hero-content text-center text-neutral-content">
+        <div class="max-w-md">
+            <h1 class="mb-5 text-5xl font-bold">个人成就管理系统</h1>
+            <p class="mb-5">记录每一步成长，展示每一份荣耀。在这里，您的所有成就都将被珍视与铭记。</p>
+            <div class="space-x-4">
+                <button class="btn btn-primary" onclick="login_modal.showModal()">登录</button>
+                <button class="btn btn-secondary" onclick="register_modal.showModal()">注册</button>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const initialContent = document.getElementById('initial-content');
-            const loginFormContainer = document.getElementById('login-form-container');
-            const showLoginBtn = document.getElementById('show-login-btn');
-            const cancelLoginBtn = document.getElementById('cancel-login-btn');
+{# --- 用于显示 Flash 消息的 Toast 容器 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div id="flash-toast" class="toast toast-top toast-center" style="z-index: 9999;">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category or 'info' }} shadow-lg">
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        <script>
+            // 自动隐藏 flash 消息
+            setTimeout(() => {
+                const toast = document.getElementById('flash-toast');
+                if (toast) {
+                    toast.style.display = 'none';
+                }
+            }, 4000);
+        </script>
+    {% endif %}
+{% endwith %}
 
-            if (showLoginBtn && initialContent && loginFormContainer) {
-                showLoginBtn.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    initialContent.classList.add('hidden');
-                    loginFormContainer.classList.remove('hidden');
-                });
-            }
 
-            if (cancelLoginBtn && initialContent && loginFormContainer) {
-                cancelLoginBtn.addEventListener('click', function(event) {
-                    loginFormContainer.classList.add('hidden');
-                    initialContent.classList.remove('hidden');
-                });
-            }
+{# ========================================================== #}
+{# =================== MODAL DEFINITIONS ==================== #}
+{# ========================================================== #}
+
+{# --- 2. 登录 Modal --- #}
+<dialog id="login_modal" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-2xl text-center">用户登录</h3>
+        <form action="{{ url_for('login') }}" method="POST" class="py-4 space-y-4">
+            <div class="form-control w-full">
+                <label class="label" for="login_name"><span class="label-text">账号:</span></label>
+                <input type="text" id="login_name" name="name" placeholder="请输入账号"
+                       class="input input-bordered w-full" required/>
+            </div>
+            <div class="form-control w-full">
+                <label class="label" for="login_password"><span class="label-text">密码:</span></label>
+                <input type="password" id="login_password" name="password" placeholder="请输入密码"
+                       class="input input-bordered w-full" required/>
+            </div>
+            <div class="modal-action flex flex-col items-center w-full">
+                <button type="submit" class="btn btn-primary w-full max-w-xs">登录</button>
+                <div class="text-center mt-4 text-sm">
+                    <span>还没有账户？</span>
+                    <a href="#" onclick="showRegisterModal(event)" class="link link-secondary">立即注册</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+
+{# --- 3. 注册 Modal --- #}
+<dialog id="register_modal" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-2xl text-center">创建新账户</h3>
+        <form action="{{ url_for('register') }}" method="POST" class="py-4 space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-control"><label class="label" for="reg_username"><span
+                        class="label-text">登录账号 <span class="text-error">*</span></span></label><input type="text"
+                                                                                                           id="reg_username"
+                                                                                                           name="username"
+                                                                                                           placeholder="用于登录，不能重复"
+                                                                                                           class="input input-sm input-bordered w-full"
+                                                                                                           required/>
+                </div>
+                <div class="form-control"><label class="label" for="reg_truename"><span
+                        class="label-text">真实姓名 <span class="text-error">*</span></span></label><input type="text"
+                                                                                                           id="reg_truename"
+                                                                                                           name="truename"
+                                                                                                           placeholder="您的真实姓名"
+                                                                                                           class="input input-sm input-bordered w-full"
+                                                                                                           required/>
+                </div>
+                <div class="form-control"><label class="label" for="reg_password"><span class="label-text">密码 <span
+                        class="text-error">*</span></span></label><input type="password" id="reg_password"
+                                                                         name="password" placeholder="至少6位"
+                                                                         class="input input-sm input-bordered w-full"
+                                                                         required minlength="6"/></div>
+                <div class="form-control"><label class="label" for="reg_confirm_password"><span class="label-text">确认密码 <span
+                        class="text-error">*</span></span></label><input type="password" id="reg_confirm_password"
+                                                                         name="confirm_password"
+                                                                         placeholder="请再次输入密码"
+                                                                         class="input input-sm input-bordered w-full"
+                                                                         required/></div>
+                <div class="form-control">
+                    <label class="label" for="reg_major"><span class="label-text">专业 <span class="text-error">*</span></span></label>
+                    <select id="reg_major" name="major" class="select select-sm select-bordered w-full" required>
+                        <option disabled selected value="">请选择你的专业</option>
+                        {% for major_option in majors %}
+                            <option  value="{{ major_option }}">{{ major_option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">入职日期 <span class="text-error">*</span>
+                    </label>
+                    <input type="date" name="employment_day" class="input input-sm input-bordered w-full" required value="{{ today }}">
+                </div>
+            </div>
+
+
+            <div class="modal-action flex flex-col items-center w-full pt-4">
+                <button type="submit" class="btn btn-secondary w-full max-w-xs">确认注册</button>
+                <div class="text-center mt-4 text-sm">
+                    <span>已经有账户了？</span>
+                    <a href="#" onclick="showLoginModal(event)" class="link link-primary">点此登录</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+
+<script>
+    // --- Modal 切换逻辑 ---
+    function showRegisterModal(event) {
+        event.preventDefault(); // 阻止a标签的默认跳转行为
+        login_modal.close();    // 关闭登录框
+        register_modal.showModal(); // 打开注册框
+    }
+
+    function showLoginModal(event) {
+        event.preventDefault(); // 阻止a标签的默认跳转行为
+        register_modal.close(); // 关闭注册框
+        login_modal.showModal();    // 打开登录框
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr("#reg_employment_day", {
+            // dateFormat: 指定日期格式，确保后端能正确解析
+            dateFormat: "Y-m-d",
+            // maxDate: "today" 表示最大可选日期为今天
+            maxDate: "today",
+            allowInput: false, //可以设置为true，允许手动输入
+            // 让日历可以被输入框的上层元素（modal）遮挡
+            static: false,
         });
-    </script>
-
+    });
+</script>
 </body>
 </html>

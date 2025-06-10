@@ -1,0 +1,241 @@
+{% extends "layout.html" %}
+
+{% block title %}后台 - 用户管理{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* 可以在这里添加此页面独有的微调样式，但大部分样式应由 DaisyUI 提供 */
+    .table th:first-child, .table td:first-child {
+        position: sticky;
+        left: 0;
+        background-color: inherit; /* 继承父元素背景色 */
+    }
+    .table th, .table td {
+        white-space: nowrap; /* 防止表格内容换行 */
+    }
+    .modal-box {
+        /* 确保模态框在小屏幕上不会过宽 */
+        width: 95%;
+        max-width: 40rem; /* 设定最大宽度 */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    {# --- 1. 页面标题与操作 --- #}
+    <section>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <h2 class="text-2xl font-semibold divider divider-start my-0 flex-shrink-0">用户管理中心</h2>
+            <button class="btn btn-primary" onclick="addUserModal.showModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3.75 19.5h16.5a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z" /></svg>
+                添加新用户
+            </button>
+        </div>
+    </section>
+
+    {# --- 2. 用户列表 --- #}
+    <section>
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>登录账号</th>
+                                <th>真实姓名</th>
+                                <th>专业</th>
+                                <th>入职日期</th>
+                                <th>角色</th>
+                                <th class="text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td class="font-medium">{{ user.username }}</td>
+                                <td>{{ user.truename }}</td>
+                                <td>{{ user.major or '未填写' }}</td>
+                                <td>{{ user.employment_day }}</td>
+                                <td>
+                                    {% if user.role == 'admin' %}
+                                    <span class="badge badge-success badge-outline">管理员</span>
+                                    {% else %}
+                                    <span class="badge badge-ghost">普通用户</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center space-x-2">
+                                    <button class="btn btn-sm btn-primary btn-outline" onclick="openResetPasswordModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="重置密码">
+                                        重置密码
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary btn-outline" onclick="openChangeRoleModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" data-role="{{ user.role }}" title="修改角色">
+                                        修改角色
+                                    </button>
+                                    <button class="btn btn-sm btn-accent btn-outline" onclick="openDeleteModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="删除用户">
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" class="text-center">系统中没有其他用户。</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+{# ================= MODALS (using DaisyUI Dialog) ================= #}
+
+<dialog id="addUserModal" class="modal">
+    <div class="modal-box">
+        <form id="addUserForm" method="POST" action="{{ url_for('admin_add_user') }}" class="space-y-4">
+            <h3 class="font-bold text-lg">添加新用户</h3>
+            <div class="form-control">
+                <label class="label"><span class="label-text">登录账号<span class="text-error">*</span></span></label>
+                <input type="text" name="username" class="input input-bordered" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">初始密码<span class="text-error">*</span> (至少6位)</span></label>
+                <input type="password" name="password" class="input input-bordered" required minlength="6" />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">真实姓名<span class="text-error">*</span></span></label>
+                <input type="text" name="truename" class="input input-bordered" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">专业<span class="text-error">*</span></span></label>
+                <input type="text" name="major" class="input input-bordered" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">入职日期<span class="text-error">*</span></span></label>
+                <input type="date" name="employment_day" class="input input-bordered" required max="{{ now().strftime('%Y-%m-%d') }}" />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">角色<span class="text-error">*</span></span></label>
+                <select name="role" class="select select-bordered" required>
+                    <option value="user" selected>普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="addUserModal.close()">取消</button>
+                <button type="submit" class="btn btn-primary">确认添加</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<dialog id="resetPasswordModal" class="modal">
+    <div class="modal-box">
+        <form id="resetPasswordForm" method="POST" class="space-y-4">
+            <h3 class="font-bold text-lg">重置密码</h3>
+            <p>您正在为用户 <strong id="resetPasswordUsername" class="text-primary"></strong> 重置密码。</p>
+            <div class="form-control">
+                <label class="label"><span class="label-text">新密码<span class="text-error">*</span> (至少6位)</span></label>
+                <input type="password" name="new_password" class="input input-bordered" required minlength="6" />
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="resetPasswordModal.close()">取消</button>
+                <button type="submit" class="btn btn-primary">确认重置</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<dialog id="changeRoleModal" class="modal">
+    <div class="modal-box">
+        <form id="changeRoleForm" method="POST" class="space-y-4">
+            <h3 class="font-bold text-lg">修改角色</h3>
+            <p>您正在修改用户 <strong id="changeRoleUsername" class="text-secondary"></strong> 的角色。</p>
+            <div class="form-control">
+                <label class="label"><span class="label-text">新角色<span class="text-error">*</span></span></label>
+                <select id="new_role_select" name="role" class="select select-bordered" required>
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="changeRoleModal.close()">取消</button>
+                <button type="submit" class="btn btn-secondary">确认修改</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<dialog id="deleteUserModal" class="modal">
+    <div class="modal-box">
+        <form id="deleteUserForm" method="POST">
+            <h3 class="font-bold text-lg text-accent-content">确认删除用户</h3>
+            <div class="py-4 space-y-2">
+                <p class="bg-accent/20 p-3 rounded-lg text-accent-content">
+                    <strong class="font-bold">警告：这是一个不可逆操作！</strong>
+                </p>
+                <p>您确定要删除用户 <strong id="deleteUsername" class="text-accent"></strong> 吗？</p>
+                <p>该用户的所有荣誉记录和上传的文件都将被 <strong class="text-accent font-semibold">永久删除</strong>。</p>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="deleteUserModal.close()">我再想想</button>
+                <button type="submit" class="btn btn-accent">狠心删除</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- Modal Handling Functions ---
+
+    function openResetPasswordModal(button) {
+        const username = button.dataset.username;
+        const truename = button.dataset.truename;
+        const form = document.getElementById('resetPasswordForm');
+        const usernameSpan = document.getElementById('resetPasswordUsername');
+
+        form.action = `/admin/user/reset_password/${username}`;
+        usernameSpan.textContent = `${truename} (${username})`;
+        resetPasswordModal.showModal();
+    }
+
+    function openChangeRoleModal(button) {
+        const username = button.dataset.username;
+        const truename = button.dataset.truename;
+        const currentRole = button.dataset.role;
+        const form = document.getElementById('changeRoleForm');
+        const usernameSpan = document.getElementById('changeRoleUsername');
+        const roleSelect = document.getElementById('new_role_select');
+
+        form.action = `/admin/user/change_role/${username}`;
+        usernameSpan.textContent = `${truename} (${username})`;
+        roleSelect.value = currentRole;
+        changeRoleModal.showModal();
+    }
+
+    function openDeleteModal(button) {
+        const username = button.dataset.username;
+        const truename = button.dataset.truename;
+        const form = document.getElementById('deleteUserForm');
+        const usernameSpan = document.getElementById('deleteUsername');
+
+        form.action = `/admin/user/delete/${username}`;
+        usernameSpan.textContent = `${truename} (${username})`;
+        deleteUserModal.showModal();
+    }
+
+    // --- Expose functions to global scope to be callable from onclick ---
+    window.openResetPasswordModal = openResetPasswordModal;
+    window.openChangeRoleModal = openChangeRoleModal;
+    window.openDeleteModal = openDeleteModal;
+});
+</script>
+{% endblock %}

@@ -55,69 +55,6 @@ footer {
   width: 100%;
 }
 
-/* 针对第二列（姓名）设置最小宽度并省略 */
-table tr th:nth-child(1) {
-  width: 3%;
-}
-
-table tr th:nth-child(2),
-table tr th:nth-child(3),
-table tr th:nth-child(4) {
-  /* min-width: 80px;
-    max-width: 150px; */
-  width: 7%;
-  white-space: nowrap;
-  /*overflow: hidden;*/
-  /*text-overflow: ellipsis;*/
-  /*display: block;*/
-}
-
-/*日期*/
-table tr th:nth-child(5) {
-  /* min-width: 80px;
-    max-width: 140px; */
-  width: 7%; /* 减少日期列的宽度 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /*display: block;*/
-}
-
-/* 类型 */
-table tr th:nth-child(6) {
-  width: 10%; /* 新增类型列的宽度 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 针对第7列（原因）设置最小宽度并省略 */
-table tr th:nth-child(7) {
-  /* min-width: 100px;
-    max-width: 300px; */
-  width: 8%; /* 略微减少原因列的宽度 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /*display: block;*/
-}
-
-table tr th:nth-child(8) {
-  /* min-width: 100px;
-    max-width: 100px; */
-  width: 15%; /* 减少撤销信息列的宽度 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-table tr th:nth-child(9) {
-  width: 10%; /* 略微减少操作列的宽度 */
-}
-
-table tr th:nth-child(10) {
-  width: 15%; /* 略微减少操作列的宽度 */
-}
 
 table.dataTable td:nth-child(n + 6) {
   white-space: normal;
@@ -143,7 +80,7 @@ thead {
   position: sticky;
   top: 0;
   background-color: #f9f7f5; /* 确保背景色与页面背景一致 */
-  z-index: 1000; /* 确保表头在其他内容之上 */
+
 }
 
 #pagination {
