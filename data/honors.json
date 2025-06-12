@@ -7,8 +7,9 @@
             "date": "2025-04-27",
             "stamp": "嘉善技师学院",
             "stamp_other": "",
-            "image_filename": "lzy_1746751477_264.jpg",
-            "honor_level": "校级"
+            "image_filename": "lzy_1749713826_927.jpg",
+            "honor_level": "校级",
+            "thumb_filename": "lzy_1749713826_927_thumb.jpg"
         },
         {
             "id": "honor_1745739248_8855",
@@ -137,7 +138,7 @@
             "date": "2024-11-08",
             "stamp": "嘉兴市人力资源和社会保障局",
             "stamp_other": "",
-            "image_filename": "lzy_1746751460_652.jpeg",
+            "image_filename": "lzy_1749707241_916.jpeg",
             "honor_level": "市级"
         },
         {
@@ -157,7 +158,7 @@
             "date": "2024-08-01",
             "stamp": "全国青少年信息素养大赛组委会",
             "stamp_other": "中国电子学会",
-            "image_filename": "lzy_1746751953_213.jpeg",
+            "image_filename": "lzy_1749707034_962.jpg",
             "honor_level": "国家级"
         },
         {
@@ -197,7 +198,7 @@
             "date": "2024-08-01",
             "stamp": "全国青少年信息素养大赛组委会",
             "stamp_other": "中国电子学会",
-            "image_filename": "lzy_1746751556_976.jpeg",
+            "image_filename": "lzy_1749707049_691.jpg",
             "honor_level": "国家级"
         },
         {
@@ -217,90 +218,29 @@
             "date": "2024-08-01",
             "stamp": "全国青少年信息素养大赛组委会",
             "stamp_other": "中国电子学会",
-            "image_filename": "lzy_1746751571_421.jpeg",
+            "image_filename": "lzy_1749707069_683.jpg",
             "honor_level": "国家级"
-        }
-    ],
-    "dh": [
-        {
-            "id": "honor_1745761078_7535",
-            "name": "123",
-            "type": "论文",
-            "date": "2025-04-27",
-            "stamp": "123",
-            "stamp_other": "2345",
-            "image_filename": "dh_1745761078_427_jpg",
-            "honor_level": "校级"
         },
         {
-            "id": "honor_1745761119_4679",
-            "name": "创新杯说课省三等奖",
-            "type": "说课",
-            "date": "2021-02-09",
-            "stamp": "省职成教办公室",
-            "image_filename": "dh_1745761137_898_JPG",
-            "honor_level": "省级"
-        },
-        {
-            "id": "honor_1745812123_7655",
-            "name": "1",
-            "type": "成果",
-            "date": "2025-04-28",
-            "stamp": "1",
+            "id": "honor_1749706728_475",
+            "name": "人工智能赋能职业教育教学能力提升专题培训班",
+            "type": "研修",
+            "date": "2025-05-16",
+            "stamp": "嘉兴职业技术学院",
             "stamp_other": "",
-            "image_filename": "dh_1745812123_419_JPG",
-            "honor_level": "校级"
-        },
-        {
-            "id": "honor_1745812415_3470",
-            "name": "1",
-            "type": "教学比武",
-            "date": "2025-04-22",
-            "stamp": "12",
-            "stamp_other": "12",
-            "image_filename": "dh_1745812415_125_jpg",
-            "honor_level": "县级"
-        },
-        {
-            "id": "honor_1745813270_4855",
-            "name": "112",
-            "type": "报告",
-            "date": "2021-02-28",
-            "stamp": "12",
-            "stamp_other": "",
-            "image_filename": "dh_1745813270_642_IMG_20240618_163506.jpg",
-            "honor_level": "省级"
-        }
-    ],
-    "tyy": [
-        {
-            "id": "honor_1745824221_4269",
-            "name": "123",
-            "type": "报告",
-            "date": "2025-04-22",
-            "stamp": "123",
-            "stamp_other": "",
-            "image_filename": "tyy_1745824221_151_1147.jpg",
-            "honor_level": "县级"
-        },
-        {
-            "id": "honor_1745824401_6823",
-            "name": "123",
-            "type": "荣誉",
-            "date": "2000-02-12",
-            "stamp": "12313",
-            "stamp_other": "",
-            "image_filename": "tyy_1745909087_842",
+            "image_filename": "lzy_1749706728_475.jpg",
             "honor_level": "市级"
         },
         {
-            "id": "honor_1745824451_5012",
-            "name": "1231",
-            "type": "荣誉",
-            "date": "2022-01-21",
-            "stamp": "12313",
-            "image_filename": "tyy_1745824451_750_1191.jpg",
-            "honor_level": "县级"
+            "id": "honor_1749714255_293",
+            "name": "2025年嘉兴市职业学校“多彩课堂”（专业课类）二等奖",
+            "type": "教学比武",
+            "date": "2025-04-18",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1749714255_293.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "lzy_1749714255_293_thumb.jpg"
         }
     ]
 }

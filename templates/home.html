@@ -275,8 +275,9 @@
                             {% set thumb_filename = parts[0] + '_thumb.' + parts[1] if parts|length == 2 else honor.image_filename %}
                             <img id="img-thumb-{{ honor.id }}"
                                  src="{{ url_for('uploaded_file_user', username=username, filename=thumb_filename) }}"
+                                 loading="lazy"
                                  alt="{{ honor.name }} 缩略图" loading="lazy"
-                                 class="transition-transform duration-300 group-hover:scale-110 object-cover h-full w-full"
+                                 class="object-cover h-full w-full"
                                  onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}';" />
                         </figure>
                         <div class="card-body p-4">
@@ -393,9 +394,10 @@
                         <input type="text" id="edit_honor_stamp_other" name="honor_stamp_other" class="input input-sm input-bordered w-full" />
                     </div>
                     <div class="form-control w-full">
-                        <label class="label py-1" for="edit_honor_image_file"><span class="label-text font-medium">替换证明图片 (可选)</span></label>
-                        <input type="file" id="edit_honor_image_file" name="honor_image" class="file-input file-input-sm file-input-bordered file-input-secondary w-full" accept="image/png, image/jpeg, image/gif" />
-                        <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图</span></label>
+                        <label class="label py-1" for="edit_honor_image_file"><span class="label-text font-medium">替换证明文件 (可选, 支持PDF)</span></label>
+                        <input type="file" id="edit_honor_image_file" name="honor_image" class="file-input file-input-sm file-input-bordered file-input-secondary w-full" accept=".png,.jpg,.jpeg,.gif,.pdf" />
+                        <div id="edit-upload-status" class="label-text-alt text-xs mt-1 min-h-[1rem]"></div>
+                        <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图。PDF文件将被自动转换为图片。</span></label>
                     </div>
 
                     {# 错误信息显示区域 #}
@@ -434,6 +436,12 @@
 {# ================ JAVASCRIPT SECTION ================== #}
 {# ====================================================== #}
 {% block scripts %}
+<script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+<script>
+    // 设置 workerSrc 以确保 pdf.js 能正常工作
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
+</script>
+
 <script>
 
 // 鼠标悬停预加载
@@ -451,6 +459,104 @@
             // console.log('Preloading image:', url); // (调试用，可以删除)
         }
     }
+
+// === 【新增】PDF处理的核心函数 (可复用) ===
+/**
+ * 处理文件输入事件，如果是PDF则进行转换
+ * @param {Event} event - 文件选择事件
+ * @param {HTMLInputElement} fileInputElement - 文件输入元素
+ * @param {HTMLElement} statusElement - 用于显示状态的元素
+ */
+async function handleFileSelect(event, fileInputElement, statusElement) {
+    statusElement.textContent = ''; // 清空旧状态
+    const file = event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    // 如果文件类型是PDF，则启动转换流程
+    if (file.type === 'application/pdf') {
+        statusElement.textContent = '正在处理PDF文件，请稍候...';
+        statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
+
+        try {
+            // 将PDF转换为JPG文件对象
+            const imageFile = await convertPdfToImage(file);
+            
+            // 使用 DataTransfer API 来创建一个新的 FileList
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(imageFile);
+
+            // 将输入框中的文件替换为新生成的图片文件
+            fileInputElement.files = dataTransfer.files;
+
+            statusElement.textContent = '✅ PDF已成功转换为图片，您可以提交了。';
+            statusElement.className = 'label-text-alt text-xs mt-1 text-success';
+
+        } catch (error) {
+            console.error('PDF conversion failed:', error);
+            statusElement.textContent = `❌ PDF处理失败: ${error.message}. 请尝试上传图片文件。`;
+            statusElement.className = 'label-text-alt text-xs mt-1 text-danger';
+            // 清空文件选择，防止提交损坏的数据
+            fileInputElement.value = ''; 
+        }
+    }
+}
+
+/**
+ * 使用 pdf.js 将 PDF 文件的第一页转换为一个图片 File 对象
+ * @param {File} pdfFile - 用户选择的PDF文件
+ * @returns {Promise<File>} - 返回一个解析为JPG图片文件的Promise
+ */
+function convertPdfToImage(pdfFile) {
+    return new Promise((resolve, reject) => {
+        const fileReader = new FileReader();
+
+        fileReader.onload = function() {
+            const typedarray = new Uint8Array(this.result);
+            
+            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                // 获取第一页
+                return pdf.getPage(1);
+            }).then(page => {
+                const scale = 1.5; // 可以调整缩放比例以控制图片清晰度
+                const viewport = page.getViewport({ scale: scale });
+
+                // 创建一个 Canvas 元素
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                // 将PDF页面渲染到Canvas上
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+
+                page.render(renderContext).promise.then(() => {
+                    // 将Canvas内容转换为Blob对象 (JPG格式)
+                    canvas.toBlob(blob => {
+                        // 从Blob创建一个新的File对象
+                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
+                        const imageFile = new File([blob], newFileName, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(imageFile);
+                    }, 'image/jpeg', 0.9); // 0.9 是图片质量
+                });
+            }).catch(error => {
+                reject(error);
+            });
+        };
+
+        fileReader.onerror = (error) => reject(error);
+        fileReader.readAsArrayBuffer(pdfFile);
+    });
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed. Initializing scripts.");
@@ -498,6 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const editHonorStampOtherInput = document.getElementById('edit_honor_stamp_other');
     const editHonorImageInput = document.getElementById('edit_honor_image_file');
     const editModalImage = document.getElementById('edit_modal_image');
+    // 【新增】获取编辑模态框中的状态显示元素
+    const editUploadStatus = document.getElementById('edit-upload-status');
+
 
     // 图片放大 Modal 和 Toast
     const imageModal = document.getElementById('image_modal');
@@ -688,6 +797,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openEditModal = (button) => {
         if (!editModal || !editForm) return alert("编辑窗口加载失败！");
         editForm.reset();
+        
+        // 【新增】重置PDF处理状态
+        if (editUploadStatus) {
+            editUploadStatus.textContent = '';
+            editUploadStatus.className = 'label-text-alt text-xs mt-1 min-h-[1rem]';
+        }
+
         if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
         if (editModalLoading) editModalLoading.classList.add('hidden');
         const data = button.dataset;
@@ -798,6 +914,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 【新增】为编辑模态框的文件输入框绑定PDF处理事件
+    if (editHonorImageInput && editUploadStatus) {
+        editHonorImageInput.addEventListener('change', (event) => {
+            handleFileSelect(event, editHonorImageInput, editUploadStatus);
+        });
+    }
 
 
     // 编辑表单提交事件

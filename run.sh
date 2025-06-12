@@ -1,5 +1,5 @@
 sudo systemctl daemon-reload
 sudo systemctl restart redis
-sudo systemctl restart myapp
+sudo systemctl restart archive
 sudo systemctl restart nginx
-sudo systemctl status myapp          # 检查状态
+sudo systemctl status archive          # 检查状态

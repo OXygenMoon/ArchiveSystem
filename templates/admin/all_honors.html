@@ -168,7 +168,7 @@
                             <img id="img-thumb-{{ honor.id }}"
                                  src="{{ url_for('uploaded_file_user', username=honor.username, filename=thumb_filename) }}"
                                  alt="{{ honor.name }} 缩略图" loading="lazy"
-                                 class="transition-transform duration-300 group-hover:scale-110 object-cover h-full w-full"
+                                 class="object-cover h-full w-full"
                                  onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}';" />
                         </figure>
                         <div class="card-body p-4">

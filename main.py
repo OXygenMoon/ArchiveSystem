@@ -1,15 +1,18 @@
 import io
 import zipfile
 from PIL import Image,ImageOps
+import fitz # 用于处理PDF
 import re
 import os
 import json
+import redis
+
 import shutil # 删除目录树
 from flask import (
     Flask, render_template, request, jsonify, redirect, url_for,
     session, send_from_directory, flash, abort, send_file
 )
-# from flask_session import Session # 如果需要 Redis Session，取消注释
+# from flask_session import Session
 import random
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -18,11 +21,12 @@ import time
 from functools import wraps
 from config import HONOR_TYPE, LEVEL_TYPE, MAJOR_TYPE # 假设你的 config.py 有这两个列表
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # --- 配置 ---
-SECRET_KEY = os.urandom(24)
+SECRET_KEY = 'e3ffd14577c6444fb5d7997c27b74ef0'
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 USER_DATA_FILE = 'data/user.json'
 HONORS_DATA_FILE = 'data/honors.json'
 README_FILE = 'README.md' # <<< 新增：定义 README 文件名
@@ -30,16 +34,33 @@ README_FILE = 'README.md' # <<< 新增：定义 README 文件名
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SESSION_PERMANENT'] = True
-app.config['SESSION_USE_SIGNER'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=7)
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024 # 限制为 16 MB
+
+# 配置 Redis
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_REDIS'] = redis.Redis(
+    host='localhost',  # Redis 服务器地址
+    port=6379,
+    db=0,
+    # password='your_redis_password'  # 如果设置了密码
+)
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_USE_SIGNER'] = True  # 对 Session ID 签名
+
+# # 初始化 Session
+# Session(app)
+
+# 告知反向代理
+app.wsgi_app = ProxyFix(
+    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+)
 
 # --- 日志 ---
 logger = app.logger
 
 # --- 确保目录和文件存在 ---
-# ... (保持不变) ...
+
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
     logger.info(f"创建上传文件夹: {UPLOAD_FOLDER}")
@@ -383,7 +404,7 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET','POST'])
 def login():
     # Handle GET requests: If accessed directly, redirect to index page
     if request.method == 'GET':
@@ -508,22 +529,22 @@ def register():
     return redirect(url_for('index'))
 
 
+# --- 路由 ---
+# 请确保删除了文件顶部的 import fitz
+
 @app.route('/add_honor', methods=['GET', 'POST'])
 @login_required
 def add_honor():
-    # ... (add_honor 路由保持不变) ...
     username = session.get('username')
     honor_types = HONOR_TYPE
     honor_levels = LEVEL_TYPE
     current_upload_folder = os.path.join(UPLOAD_FOLDER, username)
+
     if not os.path.exists(current_upload_folder):
-         try: os.makedirs(current_upload_folder)
-         except OSError as e:
-             logger.error(f"添加荣誉前无法创建目录 '{current_upload_folder}': {e}")
-             flash("无法访问存储空间，添加失败。", "error")
-             return redirect(url_for('home'))
+        os.makedirs(current_upload_folder)
 
     if request.method == 'POST':
+        # 1. 获取表单数据
         honor_name = request.form.get('honor_name')
         honor_type = request.form.get('honor_type')
         honor_date = request.form.get('honor_date')
@@ -532,58 +553,109 @@ def add_honor():
         honor_image = request.files.get('honor_image')
         honor_level = request.form.get('honor_level')
 
+        # 2. 校验
         if not all([honor_name, honor_type, honor_level, honor_date, honor_stamp]):
-            flash("请填写所有必填项（除图片外）。", "error")
-            form_data = request.form.to_dict()
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=form_data)
+            flash("请填写所有必填项。", "error")
+            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
 
         if not honor_image or honor_image.filename == '':
-            flash("请上传荣誉证明图片。", "error")
-            form_data = request.form.to_dict()
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=form_data)
-        if not allowed_file(honor_image.filename):
-            flash("无效的图片格式，请上传 png, jpg, jpeg, gif 文件。", "error")
-            form_data = request.form.to_dict()
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=form_data)
+            flash("请上传荣誉证明文件。", "error")
+            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
 
+        if not allowed_file(honor_image.filename):
+            flash("无效的文件格式，请上传图片文件（PNG, JPG, JPEG, GIF）或PDF文件。", "error")
+            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+
+        # 3. 【核心修改】文件处理逻辑 (借鉴自 edit_honor)
+        temp_path = None # 确保 temp_path 在 try 外定义
         try:
-            # filename = secure_filename(honor_image.filename)
-            # base, ext = os.path.splitext(filename)
-            base, ext = os.path.splitext(honor_image.filename)
-            ext = ext.lower()
+            # --- 步骤 3.1: 保存上传文件到临时位置 ---
+            if honor_image.filename[-3:] != 'pdf':
+                original_filename = secure_filename(honor_image.filename)
+                _, ext = os.path.splitext(original_filename)
+            else:
+                original_filename = honor_image.filename
+                ext = '.pdf'
+            
+            temp_basename = f"temp_{int(time.time())}_{random.randint(1000, 9999)}"
+            temp_filename = temp_basename + ext
+            temp_path = os.path.join(current_upload_folder, temp_filename)
+            honor_image.save(temp_path)
+            logger.info(f"上传的文件已临时保存到: {temp_path}")
+
+            # --- 步骤 3.2: 根据文件类型，创建Pillow图像对象 ---
+            pil_image = None
+            if ext.lower() == '.pdf':
+                logger.info("检测到PDF文件，开始使用fitz进行转换...")
+                import fitz # 局部导入，仅在需要时使用
+                doc = fitz.open(temp_path)
+                if len(doc) == 0:
+                    raise ValueError("PDF文件为空，没有页面可以转换。")
+                page = doc.load_page(0)  # 获取第一页
+                pix = page.get_pixmap(dpi=200) # 渲染为像素图，提高分辨率
+                doc.close()
+                mode = "RGBA" if pix.alpha else "RGB"
+                pil_image = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+                logger.info("PDF第一页成功转换为Pillow图像对象。")
+            else:
+                logger.info("检测到图片文件，使用Pillow直接打开...")
+                pil_image = Image.open(temp_path)
+                pil_image = ImageOps.exif_transpose(pil_image) # 修正图片方向
+                logger.info("图片文件成功加载为Pillow图像对象。")
+
+            if not pil_image:
+                raise ValueError("无法从上传的文件生成图像对象。")
+
+            # --- 步骤 3.3: 生成最终文件名并保存图像和缩略图 (后续逻辑与原先类似) ---
             timestamp = int(time.time())
             rand_int = random.randint(100, 999)
-            unique_filename = f"{username}_{timestamp}_{rand_int}{ext}"
-            save_path = os.path.join(current_upload_folder, unique_filename)
-            honor_image.save(save_path)
-            logger.info(f"用户 '{username}' 上传原始文件 '{unique_filename}' 到 '{current_upload_folder}' 成功")
+            
+            # 统一将最终图片保存为 JPG 格式
+            output_image_filename = f"{username}_{timestamp}_{rand_int}.jpg"
+            output_image_path = os.path.join(current_upload_folder, output_image_filename)
+            
+            # 创建缩略图文件名
+            thumb_base, _ = os.path.splitext(output_image_filename)
+            thumb_filename = f"{thumb_base}_thumb.jpg"
+            thumb_save_path = os.path.join(current_upload_folder, thumb_filename)
 
-            thumb_filename = None
-            try:
-                img = Image.open(save_path)
-                img = ImageOps.exif_transpose(img) # 防止图片自己旋转
-
-                thumbnail_size = (400, 400)
-                img.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
-
-                # thumb_base, thumb_ext = os.path.splitext(unique_filename)
-                thumb_base, thumb_ext = os.path.splitext(unique_filename)
-                thumb_ext= thumb_ext.lower()
-                thumb_filename = f"{thumb_base}_thumb{thumb_ext}"
-                thumb_save_path = os.path.join(current_upload_folder, thumb_filename)
-                img.save(thumb_save_path, quality=85, optimize=True)
-                logger.info(f"为 '{unique_filename}' 生成缩略图 '{thumb_filename}' 成功")
-                img.close()
-            except Exception as thumb_e:
-                logger.error(f"为 '{unique_filename}' 生成缩略图失败: {thumb_e}", exc_info=True)
-                thumb_filename = None
+            # 保存主图片 (转换为RGB以存为JPG)
+            if pil_image.mode in ('RGBA', 'P'):
+                background = Image.new('RGB', pil_image.size, (255, 255, 255))
+                mask = pil_image.convert('RGBA').split()[3]
+                background.paste(pil_image, mask=mask)
+                background.save(output_image_path, "JPEG", quality=85, optimize=True)
+            else:
+                pil_image.convert('RGB').save(output_image_path, "JPEG", quality=85, optimize=True)
+            logger.info(f"已将上传文件内容保存为最终图片: '{output_image_filename}'")
+            
+            # 创建并保存缩略图
+            pil_image.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            if pil_image.mode in ('RGBA', 'P'):
+                thumb_background = Image.new('RGB', pil_image.size, (255, 255, 255))
+                thumb_mask = pil_image.convert('RGBA').split()[3]
+                thumb_background.paste(pil_image, mask=thumb_mask)
+                thumb_background.save(thumb_save_path, "JPEG", quality=85, optimize=True)
+            else:
+                pil_image.convert('RGB').save(thumb_save_path, "JPEG", quality=85, optimize=True)
+            logger.info(f"成功创建缩略图: '{thumb_filename}'")
+            
+            pil_image.close()
 
         except Exception as e:
-            logger.error(f"文件上传或处理失败: {e}", exc_info=True)
-            flash(f"文件上传或处理失败: {e}", "error")
-            form_data = request.form.to_dict()
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=form_data)
+            logger.error(f"处理上传的文件失败: {e}", exc_info=True)
+            flash(f"文件处理失败，请确保文件未损坏且格式正确。错误: {e}", "error")
+            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+        finally:
+            # --- 步骤 3.4: 清理临时文件 ---
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                    logger.info(f"已成功删除临时文件: {temp_path}")
+                except OSError as e:
+                    logger.error(f"删除临时文件 '{temp_path}' 失败: {e}")
 
+        # 4. 保存荣誉数据 (这部分逻辑不变)
         new_honor = {
             "id": f"honor_{timestamp}_{rand_int}",
             "name": honor_name,
@@ -591,23 +663,20 @@ def add_honor():
             "date": honor_date,
             "stamp": honor_stamp,
             "stamp_other": honor_stamp_other,
-            "image_filename": unique_filename,
-            "honor_level": honor_level
-            # "thumb_filename": thumb_filename # 如果需要记录缩略图名
+            "image_filename": output_image_filename,
+            "honor_level": honor_level,
+            "thumb_filename": thumb_filename # 建议也保存缩略图文件名，方便调用
         }
-
         honors_data = load_honors_data()
-        if username not in honors_data:
-            honors_data[username] = []
+        if username not in honors_data: honors_data[username] = []
         honors_data[username].append(new_honor)
         save_honors_data(honors_data)
 
-        logger.info(f"用户 '{username}' 添加新荣誉 '{honor_name}' (ID: {new_honor['id']}) 成功")
+        logger.info(f"用户 '{username}' 添加新荣誉 '{honor_name}' 成功")
         flash(f"荣誉 '{honor_name}' 添加成功！", "success")
         return redirect(url_for('home'))
 
     return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels)
-
 
 @app.route('/admin/all_honors')
 @login_required
@@ -691,109 +760,137 @@ def admin_all_honors():
 
 
 # --- 【重要】用下面的版本替换掉旧的 edit_honor 和 delete_honor 函数 ---
-
 @app.route('/edit_honor/<string:honor_id>', methods=['POST'])
 @login_required
 def edit_honor(honor_id):
-    """
-    【修改】编辑荣誉记录。
-    增加了权限检查：必须是荣誉的所有者或管理员才能操作。
-    """
     # 1. 查找荣誉及其所有者
     honor_to_edit, owner_username = find_honor_and_owner(honor_id)
-
     if not honor_to_edit:
-        logger.warning(f"用户 '{session.get('username')}' 尝试编辑不存在的荣誉 ID: {honor_id}")
-        return jsonify(success=False, error="无法找到指定的荣誉记录。"), 404
+        return jsonify(success=False, error="无法找到要编辑的荣誉记录。"), 404
 
-    # 2. 权限验证：必须是所有者或管理员
-    is_admin = session.get('role') == 'admin'
-    is_owner = session.get('username') == owner_username
-    if not is_owner and not is_admin:
-        logger.warning(f"权限不足：用户 '{session.get('username')}' 尝试编辑属于 '{owner_username}' 的荣誉 ID: {honor_id}")
-        return jsonify(success=False, error="您没有权限编辑此条荣誉记录。"), 403
+    # 2. 权限验证
+    if session.get('role') != 'admin' and session.get('username') != owner_username:
+        return jsonify(success=False, error="您沒有權限編輯此記錄。"), 403
 
-    # 3. 执行编辑操作 (使用 owner_username 定位数据)
+    # 3. 获取表单文本数据
+    new_name = request.form.get('honor_name')
+    if not new_name: # 简单校验
+        return jsonify(success=False, error="荣誉名称不能为空。"), 400
+
     honors_data = load_honors_data()
-    current_upload_folder = os.path.join(UPLOAD_FOLDER, owner_username) # 关键：使用荣誉所有者的上传目录
-
     honor_index = next((i for i, honor in enumerate(honors_data.get(owner_username, [])) if honor.get('id') == honor_id), -1)
-
     if honor_index == -1:
-        logger.error(f"数据不一致：在用户 '{owner_username}' 的列表中找不到荣誉 ID '{honor_id}'")
         return jsonify(success=False, error="服务器数据不一致，无法定位荣誉记录。"), 500
 
-    try:
-        # (此部分逻辑与原函数基本一致，但确保了操作对象是 owner_username)
-        new_name = request.form.get('honor_name')
-        new_type = request.form.get('honor_type')
-        new_level = request.form.get('honor_level')
-        new_date = request.form.get('honor_date')
-        new_stamp = request.form.get('honor_stamp')
-        new_stamp_other = request.form.get('honor_stamp_other', "")
-        new_image_file = request.files.get('honor_image')
+    # 4. 更新荣誉的文本信息
+    honors_data[owner_username][honor_index].update({
+        "name": new_name,
+        "type": request.form.get('honor_type'),
+        "honor_level": request.form.get('honor_level'),
+        "date": request.form.get('honor_date'),
+        "stamp": request.form.get('honor_stamp'),
+        "stamp_other": request.form.get('honor_stamp_other', ""),
+    })
 
-        if not all([new_name, new_type, new_level, new_date, new_stamp]):
-             return jsonify(success=False, error="请填写所有必填项。"), 400
+    # 5. 【核心修复】如果上传了新文件，则处理它
+    new_image_file = request.files.get('honor_image')
+    
+    if new_image_file and new_image_file.filename:
+        if new_image_file.filename[-3:] != "pdf":
+            original_filename = secure_filename(new_image_file.filename)
+            _, ext = os.path.splitext(original_filename)
+        else:
+            original_filename = new_image_file.filename
+            ext = '.pdf'
+        
+        if not allowed_file(new_image_file.filename):
+            return jsonify(success=False, error="上传了无效的文件格式。"), 400
 
-        old_filename = honor_to_edit.get('image_filename')
-        updated_filename = old_filename
+        temp_path = None # 确保 temp_path 在 try 外定义
+        try:
+            current_upload_folder = os.path.join(UPLOAD_FOLDER, owner_username)
+            if not os.path.exists(current_upload_folder):
+                os.makedirs(current_upload_folder)
 
-        if new_image_file and new_image_file.filename != '':
-            if allowed_file(new_image_file.filename):
-                try:
-                    _, ext = os.path.splitext(new_image_file.filename)
-                    ext = ext.lower()
-                    timestamp = int(time.time())
-                    rand_int = random.randint(100, 999)
-                    # 文件名中包含所有者，避免冲突
-                    updated_filename = f"{owner_username}_{timestamp}_{rand_int}{ext}"
-                    save_path = os.path.join(current_upload_folder, updated_filename)
-                    new_image_file.save(save_path)
-                    logger.info(f"用户 '{session.get('username')}' 为荣誉 '{honor_id}' 上传了新图片 '{updated_filename}'")
+            # --- 【关键修正】采用更稳健的临时文件命名方式 ---
+            temp_basename = f"temp_{int(time.time())}_{random.randint(1000, 9999)}"
+            temp_filename = temp_basename + ext # 正确地保留原始扩展名
+            temp_path = os.path.join(current_upload_folder, temp_filename)
+            new_image_file.save(temp_path)
+            # --- 修正结束 ---
 
-                    # (缩略图生成和旧文件删除逻辑保持不变)
-                    try:
-                        img = Image.open(save_path)
-                        img = ImageOps.exif_transpose(img)
-                        thumbnail_size = (400, 400)
-                        img.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
-                        thumb_base, thumb_ext = os.path.splitext(updated_filename)
-                        thumb_filename_to_save = f"{thumb_base}_thumb{thumb_ext}"
-                        thumb_save_path = os.path.join(current_upload_folder, thumb_filename_to_save)
-                        img.save(thumb_save_path, quality=85, optimize=True)
-                        img.close()
-                    except Exception as thumb_e:
-                        logger.error(f"为新图片 '{updated_filename}' 生成缩略图失败: {thumb_e}")
-
-                    if old_filename and old_filename != updated_filename:
-                        old_path = os.path.join(current_upload_folder, old_filename)
-                        if os.path.exists(old_path): os.remove(old_path)
-                        old_base, old_ext = os.path.splitext(old_filename)
-                        old_thumb_filename = f"{old_base}_thumb{old_ext}"
-                        old_thumb_path = os.path.join(current_upload_folder, old_thumb_filename)
-                        if os.path.exists(old_thumb_path): os.remove(old_thumb_path)
-                except Exception as e:
-                    logger.error(f"更新荣誉 '{honor_id}' 的图片时处理失败: {e}", exc_info=True)
-                    return jsonify(success=False, error=f"图片处理失败: {e}"), 500
+            pil_image = None
+            if ext.lower() == '.pdf':
+                import fitz
+                doc = fitz.open(temp_path)
+                if len(doc) == 0: raise ValueError("PDF文件为空。")
+                page = doc.load_page(0)
+                pix = page.get_pixmap(dpi=200)
+                doc.close()
+                mode = "RGBA" if pix.alpha else "RGB"
+                pil_image = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
             else:
-                return jsonify(success=False, error="上传了无效的图片格式。请使用 png, jpg, jpeg, gif。"), 400
+                pil_image = Image.open(temp_path)
+                pil_image = ImageOps.exif_transpose(pil_image)
 
-        updated_honor_data = {
-            "id": honor_id, "name": new_name, "type": new_type, "date": new_date,
-            "stamp": new_stamp, "stamp_other": new_stamp_other,
-            "image_filename": updated_filename, "honor_level": new_level
-        }
+            if not pil_image:
+                raise ValueError("无法从上传的文件生成图像对象。")
 
-        honors_data[owner_username][honor_index] = updated_honor_data
-        save_honors_data(honors_data)
+            # 生成新的唯一文件名
+            timestamp = int(time.time())
+            rand_int = random.randint(100, 999)
+            output_image_filename = f"{owner_username}_{timestamp}_{rand_int}.jpg"
+            output_thumb_filename = f"{os.path.splitext(output_image_filename)[0]}_thumb.jpg"
+            
+            output_image_path = os.path.join(current_upload_folder, output_image_filename)
+            output_thumb_path = os.path.join(current_upload_folder, output_thumb_filename)
 
-        logger.info(f"用户 '{session.get('username')}' 成功编辑了属于 '{owner_username}' 的荣誉 ID: {honor_id}")
-        return jsonify(success=True, message=f"荣誉 '{new_name}' 更新成功！")
+            # 保存主图 (统一为JPG) 和缩略图
+            # (此部分逻辑与 add_honor 相同，此处不再赘述，确保您的代码中是完整的)
+            if pil_image.mode in ('RGBA', 'P'):
+                background = Image.new('RGB', pil_image.size, (255, 255, 255))
+                mask = pil_image.convert('RGBA').split()[3]
+                background.paste(pil_image, mask=mask)
+                background.save(output_image_path, "JPEG", quality=85, optimize=True)
+            else:
+                pil_image.convert('RGB').save(output_image_path, "JPEG", quality=85, optimize=True)
 
-    except Exception as e:
-        logger.error(f"编辑荣誉 {honor_id} 时发生未知错误: {e}", exc_info=True)
-        return jsonify(success=False, error="更新荣誉时发生内部错误。"), 500
+            thumb_image = pil_image.copy()
+            thumb_image.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            if thumb_image.mode in ('RGBA', 'P'):
+                thumb_bg = Image.new('RGB', thumb_image.size, (255, 255, 255))
+                thumb_mask = thumb_image.convert('RGBA').split()[3]
+                thumb_bg.paste(thumb_image, mask=thumb_mask)
+                thumb_bg.save(output_thumb_path, "JPEG", quality=85, optimize=True)
+            else:
+                thumb_image.convert('RGB').save(output_thumb_path, "JPEG", quality=85, optimize=True)
+            
+            pil_image.close()
+            thumb_image.close()
+            
+            # 删除旧文件
+            if honor_to_edit.get('image_filename'):
+                old_image_path = os.path.join(current_upload_folder, honor_to_edit['image_filename'])
+                if os.path.exists(old_image_path): os.remove(old_image_path)
+            if honor_to_edit.get('thumb_filename'):
+                old_thumb_path = os.path.join(current_upload_folder, honor_to_edit['thumb_filename'])
+                if os.path.exists(old_thumb_path): os.remove(old_thumb_path)
+                
+            # 更新JSON中的文件名
+            honors_data[owner_username][honor_index]['image_filename'] = output_image_filename
+            honors_data[owner_username][honor_index]['thumb_filename'] = output_thumb_filename
+
+        except Exception as e:
+            logger.error(f"编辑时处理新上传文件失败: {e}", exc_info=True)
+            return jsonify(success=False, error=f"文件处理失败: {e}"), 500
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    # 6. 保存所有更改
+    save_honors_data(honors_data)
+    
+    return jsonify(success=True, message=f"荣誉 '{new_name}' 更新成功！")
 
 
 @app.route('/delete_honor/<string:honor_id>', methods=['POST'])
@@ -1279,5 +1376,4 @@ if __name__ == '__main__':
     print(f"荣誉数据: {os.path.abspath(HONORS_DATA_FILE)}")
     print(f"用户数据: {os.path.abspath(USER_DATA_FILE)}")
     print(f"将尝试加载README文件: {os.path.abspath(README_FILE)}") # <<< 新增：提示README路径
-    # 确保安装了 Markdown 库: pip install Markdown
-    app.run(debug=True, host='0.0.0.0', port=8888)
+    app.run(debug=True, host='0.0.0.0', port=8001)

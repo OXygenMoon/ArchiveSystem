@@ -1,30 +1,4 @@
 {
-    "tyy": {
-        "username": "tyy",
-        "truename": "陶云云",
-        "password": "123456",
-        "department": "经艺系",
-        "role": "super_admin",
-        "class": -1,
-        "motto": "坚持不懈"
-    },
-    "dh": {
-        "username": "dh",
-        "truename": "都航",
-        "password": "scrypt:32768:8:1$6JDyU2V0Y930wxIn$328390fc10aede52f88ba2d9fff8fbf24190a9bf877aa6646eb8debd9db9a8a8c69823f0003520dece495a67b4ad471466f510c41d1609261193c752eaaabae0",
-        "department": "经艺系",
-        "role": "user",
-        "employment_day": "2024-08-01",
-        "class": 2430
-    },
-    "hm": {
-        "username": "hm",
-        "truename": "黄明",
-        "password": "123456",
-        "department": "制造系",
-        "role": "super_admin",
-        "class": -1
-    },
     "lzy": {
         "username": "lzy",
         "password": "scrypt:32768:8:1$AyaU36BJDQqwdwIj$b1ef648b9b4549700a2912ab22da87955050896f34ab57bf83c1f320540608ff18d516c6df00a258ded8e14f8e558cd60e3c108e12e5eb95f3a0c91702367d08",
