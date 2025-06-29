@@ -241,6 +241,17 @@
             "image_filename": "lzy_1749714255_293.jpg",
             "honor_level": "市级",
             "thumb_filename": "lzy_1749714255_293_thumb.jpg"
+        },
+        {
+            "id": "honor_1750418870_636",
+            "name": "省人社厅三年内新进教师职业能力提升培训（30学时）",
+            "type": "研修",
+            "date": "2025-06-20",
+            "stamp": "浙江省职业能力提升促进中心",
+            "stamp_other": "",
+            "image_filename": "lzy_1750418870_636.jpg",
+            "honor_level": "省级",
+            "thumb_filename": "lzy_1750418870_636_thumb.jpg"
         }
     ]
 }

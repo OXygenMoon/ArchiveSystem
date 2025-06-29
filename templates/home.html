@@ -4,6 +4,8 @@
 {% block title %}我的看板{% endblock %}
 
 {% block head_extra %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+
 <style>
     /* --- 布局与通用样式 --- */
     .honor-section-header {
@@ -22,8 +24,24 @@
         gap: 0.75rem; /* 筛选器之间的间距 */
     }
 
-    .honor-filter-container select {
-        min-width: 130px;
+    .honor-filter-container .ts-control {
+    flex-wrap: nowrap;
+    overflow-x: auto; /* 当内容超出时，出现横向滚动条 */
+    }
+
+    /* 2. (可选) 美化滚动条，让其在大部分浏览器中隐藏，但保留滚动功能 */
+    .honor-filter-container .ts-control {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+    }
+    .honor-filter-container .ts-control::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+
+    .honor-filter-container {
+        /* 为筛选器容器设定一个最大宽度，防止被无限撑开 */
+        max-width: 220px; 
+        flex-grow: 1; /* 允许它在有空间时增长到最大宽度 */
     }
 
     /* 【新增】关键词搜索框样式 */
@@ -84,6 +102,38 @@
     /* --- 其他微调 --- */
     .card figure img { will-change: transform; } /* 优化动画性能 */
     .toast { z-index: 9999 !important; } /* 确保 Toast 在最上层 */
+
+            /* --- 【新增/修改】Tom Select 与 DaisyUI 融合样式 --- */
+    :root {
+        --ts-border-radius: var(--rounded-btn, 0.5rem);
+        --ts-font-size: 0.875rem; /* 对应 input-sm */
+        --ts-line-height: 1.25rem;
+    }
+    .ts-control {
+        background-color: hsl(var(--b1)) !important;
+        min-height: 2rem; /* 对应 DaisyUI 的 input-sm 高度 */
+        max-height: 2rem;
+        border-radius: 30px;
+        box-shadow: none !important;
+    }
+    .ts-control:hover { border-color: hsl(var(--bc) / 0.3) !important; }
+    .ts-control.focus {
+        border-color: hsl(var(--p)) !important;
+        box-shadow: 0 0 0 1px hsl(var(--p)) !important;
+    }
+
+    .ts-wrapper.is-filtered .ts-control {
+        /* 将边框颜色变为主题的主色 */
+        border-color: hsl(var(--p) / 0.8) !important;
+        box-shadow: 0 0 0 1px hsl(var(--p) / 0.6) !important;
+    }
+
+    .ts-wrapper.is-filtered .ts-control input::placeholder {
+        /* 将占位符文本颜色也变为主题的主色 */
+        color: hsl(var(--p)) !important;
+        opacity: 1; /* 确保颜色完全不透明 */
+        font-weight: 500; /* 可以适当加粗，以示区别 */
+    }
 
 </style>
 {% endblock %}
@@ -234,8 +284,8 @@
                 {# 仅当当前列表有数据时，才显示客户端筛选器 #}
                 {# 类型筛选 (客户端筛选) #}
                 <div class="honor-filter-container">
-                    <select id="honor-type-filter" name="honor_type_filter" class="select select-bordered select-sm" title="按类型筛选当前列表">
-                        <option value="">全部类型</option>
+                    <select id="honor-type-filter" name="honor_type_filter" multiple placeholder="筛选类型..." title="按类型筛选当前列表">
+                        
                         {% for type_option in honor_types %}
                             <option value="{{ type_option | escape }}">{{ type_option }}</option>
                         {% endfor %}
@@ -243,8 +293,8 @@
                 </div>
                 {# 等级筛选 (客户端筛选) #}
                 <div class="honor-filter-container">
-                    <select id="honor-level-filter" name="honor_level_filter" class="select select-bordered select-sm" title="按等级筛选当前列表">
-                        <option value="">全部等级</option>
+                    <select id="honor-level-filter" name="honor_level_filter" multiple placeholder="筛选等级..." title="按等级筛选当前列表">
+                        
                         {% for level_option in honor_levels %}
                             <option value="{{ level_option | escape }}">{{ level_option }}</option>
                         {% endfor %}
@@ -436,6 +486,7 @@
 {# ================ JAVASCRIPT SECTION ================== #}
 {# ====================================================== #}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
 <script>
     // 设置 workerSrc 以确保 pdf.js 能正常工作
@@ -560,6 +611,50 @@ function convertPdfToImage(pdfFile) {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed. Initializing scripts.");
+    // 【修改后的最终代码】
+    const tomSelectSettings = {
+        plugins: {
+            'checkbox_options': {}
+        },
+        create: false,
+        maxItems: null,
+        closeAfterSelect: false,
+        render: {
+            /**
+            * 【终极解决方案】
+            * 1. 我们返回一个真实的 <div> 元素，来满足 checkbox_options 插件的内部依赖。
+            * 2. 我们给这个 <div> 加上 style="display: none;" 的内联样式。
+            * 3. 这使得该元素虽然存在于DOM中，但浏览器在渲染时会完全忽略它，
+            * 它既不可见，也不占据任何宽度、高度或边距。
+            * 这样就同时满足了“插件能正常工作”和“UI上看不出任何东西”两个条件。
+            */
+            item: function(data, escape) {
+                return '<div style="display: none;"></div>';
+            }
+        },
+        onInitialize: function() {
+            // 解决 daisyUI 主题切换后样式丢失问题
+            this.wrapper.style.color = 'hsl(var(--bc))';
+        }
+    };
+    const typeSelect = document.getElementById('honor-type-filter');
+    const levelSelect = document.getElementById('honor-level-filter');
+    let tomTypeInstance, tomLevelInstance;
+    if (typeSelect) {
+        tomTypeInstance = new TomSelect(typeSelect, tomSelectSettings);
+        tomTypeInstance.originalPlaceholder = typeSelect.getAttribute('placeholder');
+    }
+    if (levelSelect) {
+        tomLevelInstance = new TomSelect(levelSelect, tomSelectSettings);
+        tomLevelInstance.originalPlaceholder = levelSelect.getAttribute('placeholder');
+    }
+    if (tomTypeInstance) {
+        updateTomSelectPlaceholder(tomTypeInstance, tomTypeInstance.getValue());
+    }
+    if (tomLevelInstance) {
+        updateTomSelectPlaceholder(tomLevelInstance, tomLevelInstance.getValue());
+    }
+
 
     // ==========================================================
     // --- 全局 DOM 元素引用 (移到最前面以避免初始化错误) ---
@@ -585,8 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 荣誉列表筛选
     const dateFilterSelect = document.getElementById('date-filter-select');
     const keywordSearchInput = document.getElementById('keyword-search-input'); // 【新增】
-    const honorTypeFilterSelect = document.getElementById('honor-type-filter');
-    const honorLevelFilterSelect = document.getElementById('honor-level-filter');
     const honorsGrid = document.getElementById('honors-grid');
     const noHonorsMessage = document.getElementById('no-honors-message');
 
@@ -618,6 +711,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================
     // --- 函数定义部分 ---
     // ==========================================================
+
+    /**
+    * 根据 Tom Select 的选中项，动态更新其占位符文本和样式
+    * @param {object} tomSelectInstance - Tom Select 的实例对象 (e.g., tomTypeInstance)
+    * @param {Array} selectedValues - 当前选中的值的数组
+    */
+    function updateTomSelectPlaceholder(tomSelectInstance, selectedValues) {
+        // 确保实例和其核心组件存在
+        if (!tomSelectInstance || !tomSelectInstance.control_input || !tomSelectInstance.wrapper) {
+            return;
+        }
+
+        const input = tomSelectInstance.control_input; // 获取内部的 <input> 元素
+        const wrapper = tomSelectInstance.wrapper;     // 获取最外层的 .ts-wrapper 容器
+        const count = selectedValues.length;           // 获取选中项的数量
+
+        if (count > 0) {
+            // 如果有选中项
+            // 从实例上获取原始 placeholder 的后半部分 (例如 "类型" 或 "等级")
+            const placeholderSuffix = tomSelectInstance.originalPlaceholder.replace('筛选', '').replace('...', '');
+            input.placeholder = `已筛选 ${count} 个${placeholderSuffix}`; // 设置新的 placeholder
+            wrapper.classList.add('is-filtered'); // 添加一个特殊类，用于CSS样式控制
+        } else {
+            // 如果没有选中项 (即清空了筛选)
+            input.placeholder = tomSelectInstance.originalPlaceholder; // 恢复原始 placeholder
+            wrapper.classList.remove('is-filtered'); // 移除特殊类
+        }
+    }
 
     // --- 1. 个性签名 (Motto) 功能 ---
     const enterEditMottoMode = () => {
@@ -692,17 +813,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const applySavedFilters = () => {
-        const savedKeyword = localStorage.getItem('honorFilterKeyword'); // 【新增】
+        const savedKeyword = localStorage.getItem('honorFilterKeyword');
         if (keywordSearchInput && savedKeyword) {
             keywordSearchInput.value = savedKeyword;
         }
-        const savedType = localStorage.getItem('honorFilterType');
-        if (honorTypeFilterSelect && savedType) {
-            honorTypeFilterSelect.value = savedType;
-        }
-        const savedLevel = localStorage.getItem('honorFilterLevel');
-        if (honorLevelFilterSelect && savedLevel) {
-            honorLevelFilterSelect.value = savedLevel;
+        // 恢复 Tom Select 的值
+        try {
+            const savedType = JSON.parse(localStorage.getItem('honorFilterType'));
+            if (tomTypeInstance && savedType) {
+                tomTypeInstance.setValue(savedType);
+                // 【在这里新增下面这行代码】
+                updateTomSelectPlaceholder(tomTypeInstance, savedType); 
+            }
+            const savedLevel = JSON.parse(localStorage.getItem('honorFilterLevel'));
+            if (tomLevelInstance && savedLevel) {
+                tomLevelInstance.setValue(savedLevel);
+                // 【在这里也新增下面这行代码】
+                updateTomSelectPlaceholder(tomLevelInstance, savedLevel);
+            }
+        } catch(e) {
+            console.warn("Could not parse saved filters from localStorage", e);
+            localStorage.removeItem('honorFilterType');
+            localStorage.removeItem('honorFilterLevel');
         }
     };
 
@@ -742,51 +874,58 @@ document.addEventListener('DOMContentLoaded', () => {
      * 【修改】核心函数：应用客户端筛选，并触发统计更新
      */
     const applyClientFilters = () => {
-        if (!honorsGrid) return;
+    if (!honorsGrid) return;
 
-        const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : ""; // 【新增】
-        const selectedType = honorTypeFilterSelect ? honorTypeFilterSelect.value : "";
-        const selectedLevel = honorLevelFilterSelect ? honorLevelFilterSelect.value : "";
-        const honorCards = honorsGrid.querySelectorAll('.card');
+    const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
+    // 从 Tom Select 获取选中的值，它们会是数组
+    const selectedTypes = tomTypeInstance ? tomTypeInstance.getValue() : [];
+    const selectedLevels = tomLevelInstance ? tomLevelInstance.getValue() : [];
 
-        let visibleCount = 0;
-        const typeCounts = {};
-        const levelCounts = {};
+    const honorCards = honorsGrid.querySelectorAll('.card');
 
-        // 遍历卡片，进行筛选和计数
-        honorCards.forEach(card => {
-            const honorName = card.dataset.name.toLowerCase(); // 【新增】
-            const nameMatch = !keyword || honorName.includes(keyword); // 【新增】
-            const typeMatch = !selectedType || card.dataset.type === selectedType;
-            const levelMatch = !selectedLevel || card.dataset.level === selectedLevel;
+    let visibleCount = 0;
+    const typeCounts = {};
+    const levelCounts = {};
 
-            if (nameMatch && typeMatch && levelMatch) { // 【修改】
-                card.style.display = '';
-                visibleCount++;
-                const cardType = card.dataset.type;
-                const cardLevel = card.dataset.level;
-                if(cardType) typeCounts[cardType] = (typeCounts[cardType] || 0) + 1;
-                if(cardLevel) levelCounts[cardLevel] = (levelCounts[cardLevel] || 0) + 1;
-            } else {
-                card.style.display = 'none';
-            }
-        });
+    // 遍历卡片，进行筛选和计数
+    honorCards.forEach(card => {
+        const honorName = card.dataset.name.toLowerCase();
+        const cardType = card.dataset.type;
+        const cardLevel = card.dataset.level;
 
-        // 更新“无结果”提示信息
-        if (noHonorsMessage) {
-            const isFiltering = keyword || selectedType || selectedLevel;
-            noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
+        const nameMatch = !keyword || honorName.includes(keyword);
+        // 如果没有选择任何类型，则视为匹配；否则检查卡片类型是否在选中数组中
+        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(cardType);
+        // 如果没有选择任何等级，则视为匹配；否则检查卡片等级是否在选中数组中
+        const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(cardLevel);
+
+        if (nameMatch && typeMatch && levelMatch) {
+            card.style.display = '';
+            visibleCount++;
+            if(cardType) typeCounts[cardType] = (typeCounts[cardType] || 0) + 1;
+            if(cardLevel) levelCounts[cardLevel] = (levelCounts[cardLevel] || 0) + 1;
+        } else {
+            card.style.display = 'none';
         }
+    });
 
-        // 调用新函数来更新统计面板
-        updateDynamicStats(typeCounts, levelCounts, visibleCount);
-    };
+    // 更新“无结果”提示信息
+    if (noHonorsMessage) {
+        const isFiltering = keyword || selectedTypes.length > 0 || selectedLevels.length > 0;
+        noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
+    }
+
+    // 调用函数更新统计面板
+    updateDynamicStats(typeCounts, levelCounts, visibleCount);
+};
 
     // 【修改】此函数只重置客户端筛选器
     window.resetClientFilters = () => {
         if (keywordSearchInput) keywordSearchInput.value = "";
-        if (honorTypeFilterSelect) honorTypeFilterSelect.value = "";
-        if (honorLevelFilterSelect) honorLevelFilterSelect.value = "";
+        // 使用 Tom Select API 清空
+        if (tomTypeInstance) tomTypeInstance.clear();
+        if (tomLevelInstance) tomLevelInstance.clear();
+
         localStorage.removeItem('honorFilterKeyword');
         localStorage.removeItem('honorFilterType');
         localStorage.removeItem('honorFilterLevel');
@@ -858,6 +997,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 根据当前(可能已恢复的)筛选器值，执行一次客户端筛选和动态统计（关键！）
     applyClientFilters();
 
+    if (tomTypeInstance) {
+        console.log('--- 脚本初始化：正在绑定“类型筛选”事件 ---');
+        
+        tomTypeInstance.on('change', (value) => {
+            console.log(`[CHANGE event - 类型] 触发，选中的值:`, value);
+            localStorage.setItem('honorFilterType', JSON.stringify(value));
+            applyClientFilters();
+            updateTomSelectPlaceholder(tomTypeInstance, value);
+        });
+    }
+
+    if (tomLevelInstance) {
+        console.log('--- 脚本初始化：正在绑定“等级筛选”事件 ---');
+
+        tomLevelInstance.on('change', (value) => {
+            console.log(`[CHANGE event - 等级] 触发，选中的值:`, value);
+            localStorage.setItem('honorFilterLevel', JSON.stringify(value));
+            applyClientFilters();
+            updateTomSelectPlaceholder(tomLevelInstance, value);
+        });
+    }
+
     // --- 事件绑定 ---
     // 个性签名事件
     if (mottoDisplayArea) mottoDisplayArea.addEventListener('click', enterEditMottoMode);
@@ -887,18 +1048,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (honorTypeFilterSelect) {
-        honorTypeFilterSelect.addEventListener('change', () => {
-            localStorage.setItem('honorFilterType', honorTypeFilterSelect.value);
-            applyClientFilters();
-        });
-    }
-    if (honorLevelFilterSelect) {
-        honorLevelFilterSelect.addEventListener('change', () => {
-            localStorage.setItem('honorFilterLevel', honorLevelFilterSelect.value);
-            applyClientFilters();
-        });
-    }
 
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     if (resetFiltersBtn) {

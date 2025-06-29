@@ -1,498 +1,561 @@
-{% extends "layout.html" %}
+{% extends "layout.html" %} 
 
-{% block title %}{{ user_truename }} - 我的荣誉表{% endblock %}
+ {% block title %}{{ user_truename }} - 我的荣誉表{% endblock %} 
 
-{% block head_extra %}
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-<style>
-    /* 样式基本保持不变，但可能需要微调 */
-    .table th:first-child, .table td:first-child {
-        position: sticky; left: 0; background-color: inherit; z-index: 1; min-width: 150px;
-    }
-    .table th {
-        position: sticky; top: 0; background-color: hsl(var(--b2, var(--b1))); z-index: 2;
-    }
-    .table-container {
-        max-height: 70vh; /* 稍微降低一点给筛选留空间 */
-        overflow-y: auto; overflow-x: auto;
-        border: 1px solid hsl(var(--b3, #e5e7eb)); border-radius: 0.5rem;
-    }
-    .table { width: 100%; }
+ {% block head_extra %} 
+ <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script> 
+ <style> 
+     /* 样式基本保持不变，但可能需要微调 */ 
+     .table th:first-child, .table td:first-child { 
+         position: sticky; left: 0; background-color: inherit; z-index: 1; min-width: 150px; 
+     } 
+     .table th { 
+         position: sticky; top: 0; background-color: hsl(var(--b2, var(--b1))); z-index: 2; 
+     } 
+     .table-container { 
+         max-height: 70vh; /* 稍微降低一点给筛选留空间 */ 
+         overflow-y: auto; overflow-x: auto; 
+         border: 1px solid hsl(var(--b3, #e5e7eb)); border-radius: 0.5rem; 
+     } 
+     .table { width: 100%; } 
 
-    /* 筛选器样式 (从 home.html 借鉴) */
-    .filters-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem; /* 增加与表格的间距 */
-        flex-wrap: wrap;
-        gap: 1rem; /* 标题和筛选/下载按钮之间的间距 */
-    }
-    .filters-container {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem;
-    }
-    .filter-container label {
-        margin-right: 0.5rem;
-        font-weight: 500;
-        white-space: nowrap;
-    }
-    .filter-container select {
-        min-width: 120px; /* 给 select 合适宽度 */
-    }
-    /* 【新增】关键词搜索框样式 */
-    .keyword-search-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-grow: 1;
-        min-width: 180px; /* 最小宽度 */
-    }
+     /* 筛选器样式 (从 home.html 借鉴) */ 
+     .filters-header { 
+         display: flex; 
+         justify-content: space-between; 
+         align-items: center; 
+         margin-bottom: 1.5rem; /* 增加与表格的间距 */ 
+         flex-wrap: wrap; 
+         gap: 1rem; /* 标题和筛选/下载按钮之间的间距 */ 
+     } 
+     .filters-container { 
+         display: flex; 
+         flex-wrap: wrap; 
+         align-items: center; 
+         gap: 0.75rem; 
+     } 
+     .filter-container label { 
+         margin-right: 0.5rem; 
+         font-weight: 500; 
+         white-space: nowrap; 
+     } 
+     .filter-container select { 
+         min-width: 120px; /* 给 select 合适宽度 */ 
+     } 
+     /* 【新增】关键词搜索框样式 */ 
+     .keyword-search-container { 
+         display: flex; 
+         align-items: center; 
+         gap: 0.5rem; 
+         flex-grow: 1; 
+         min-width: 180px; /* 最小宽度 */ 
+     } 
+     .menu a .loading { vertical-align: middle; margin-right: 0.5rem; } 
+     .menu a .icon { vertical-align: middle; margin-right: 0.5rem; width: 1rem; height: 1rem; display: inline-block; } 
 
-    /* 下载按钮样式 */
-    #download-zip-btn .loading { vertical-align: middle; margin-right: 0.25rem;}
-</style>
-{% endblock %}
+     /* 下载按钮样式 */ 
+     #download-zip-btn .loading { vertical-align: middle; margin-right: 0.25rem;} 
+ </style> 
+ {% endblock %} 
 
-{% block content %}
+ {% block content %} 
 
-{# --- 筛选和标题区域 --- #}
-<div class="filters-header">
-    {# 标题 #}
-    {% set filter_text_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
-    {% set filter_text = filter_text_map.get(selected_date_filter, '全部时间') %}
-    <h1 class="text-2xl font-semibold my-0 flex-shrink-0">
-        {{ user_truename }} 的荣誉记录
-        <span class="text-base-content/70 font-normal text-lg">({{ filter_text }})</span>
-    </h1>
+ {# --- 筛选和标题区域 --- #} 
+ <div class="filters-header"> 
+     {# 标题 #} 
+     {% set filter_text_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %} 
+     {% set filter_text = filter_text_map.get(selected_date_filter, '全部时间') %} 
+     <h1 class="text-2xl font-semibold my-0 flex-shrink-0"> 
+         {{ user_truename }} 的荣誉记录 
+         <span class="text-base-content/70 font-normal text-lg">({{ filter_text }})</span> 
+     </h1> 
 
-    {# 筛选器和下载按钮容器 #}
-    <div class="filters-container">
-        {# 【新增】0. 关键词搜索框 #}
-        {% if honors %}
-        <div class="keyword-search-container filter-container" title="按荣誉名称搜索">
-             <label for="keyword-search-input" class="text-sm">搜索:</label>
-             <div class="relative w-full">
-                <input type="search" id="keyword-search-input" name="q" class="input input-bordered input-sm w-full pr-8" placeholder="输入荣誉名称..." value="{{ search_query | default('', true) }}">
-                <span class="absolute inset-y-0 right-2 flex items-center opacity-50">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
-                </span>
-             </div>
-        </div>
-        {% endif %}
+     {# 筛选器和下载按钮容器 #} 
+     <div class="filters-container"> 
+         {# 【新增】0. 关键词搜索框 #} 
+         {% if honors %} 
+         <div class="keyword-search-container filter-container" title="按荣誉名称搜索"> 
+              <label for="keyword-search-input" class="text-sm">搜索:</label> 
+              <div class="relative w-full"> 
+                 <input type="search" id="keyword-search-input" name="q" class="input input-bordered input-sm w-full pr-8" placeholder="输入荣誉名称..." value="{{ search_query | default('', true) }}"> 
+                 <span class="absolute inset-y-0 right-2 flex items-center opacity-50"> 
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg> 
+                 </span> 
+              </div> 
+         </div> 
+         {% endif %} 
 
-        {# 1. Date Filter #}
-        <div class="filter-container">
-            <label for="date-filter-select" class="text-sm">时间:</label>
-            <select id="date-filter-select" name="filter_date" class="select select-bordered select-sm" title="按时间筛选荣誉列表">
-                <option value="all" {% if selected_date_filter == 'all' %}selected{% endif %}>全部时间</option>
-                <option value="last_year" {% if selected_date_filter == 'last_year' %}selected{% endif %}>一年内</option>
-                <option value="last_3_years" {% if selected_date_filter == 'last_3_years' %}selected{% endif %}>三年内</option>
-                <option value="last_5_years" {% if selected_date_filter == 'last_5_years' %}selected{% endif %}>五年内</option>
-            </select>
-        </div>
+         {# 1. Date Filter #} 
+         <div class="filter-container"> 
+             <label for="date-filter-select" class="text-sm">时间:</label> 
+             <select id="date-filter-select" name="filter_date" class="select select-bordered select-sm" title="按时间筛选荣誉列表"> 
+                 <option value="all" {% if selected_date_filter == 'all' %}selected{% endif %}>全部时间</option> 
+                 <option value="last_year" {% if selected_date_filter == 'last_year' %}selected{% endif %}>一年内</option> 
+                 <option value="last_3_years" {% if selected_date_filter == 'last_3_years' %}selected{% endif %}>三年内</option> 
+                 <option value="last_5_years" {% if selected_date_filter == 'last_5_years' %}selected{% endif %}>五年内</option> 
+             </select> 
+         </div> 
 
-        {# 2. Type Filter #}
-        {% if honors and honor_types %}
-        <div class="filter-container">
-             <label for="honor-type-filter" class="text-sm">类型:</label>
-            <select id="honor-type-filter" name="honor_type_filter" class="select select-bordered select-sm" title="按类型筛选当前列表">
-                <option value="">全部类型</option>
-                {% for type_option in honor_types %}
-                    <option value="{{ type_option | escape }}">{{ type_option }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
+         {# 2. Type Filter #} 
+         {% if honors and honor_types %} 
+         <div class="filter-container"> 
+              <label for="honor-type-filter" class="text-sm">类型:</label> 
+             <select id="honor-type-filter" name="honor_type_filter" class="select select-bordered select-sm" title="按类型筛选当前列表"> 
+                 <option value="">全部类型</option> 
+                 {% for type_option in honor_types %} 
+                     <option value="{{ type_option | escape }}">{{ type_option }}</option> 
+                 {% endfor %} 
+             </select> 
+         </div> 
+         {% endif %} 
 
-        {# 3. Level Filter #}
-        {% if honors and honor_levels %}
-        <div class="filter-container">
-            <label for="honor-level-filter" class="text-sm">等级:</label>
-            <select id="honor-level-filter" name="honor_level_filter" class="select select-bordered select-sm" title="按等级筛选当前列表">
-                <option value="">全部等级</option>
-                {% for level_option in honor_levels %}
-                    <option value="{{ level_option | escape }}">{{ level_option }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
+         {# 3. Level Filter #} 
+         {% if honors and honor_levels %} 
+         <div class="filter-container"> 
+             <label for="honor-level-filter" class="text-sm">等级:</label> 
+             <select id="honor-level-filter" name="honor_level_filter" class="select select-bordered select-sm" title="按等级筛选当前列表"> 
+                 <option value="">全部等级</option> 
+                 {% for level_option in honor_levels %} 
+                     <option value="{{ level_option | escape }}">{{ level_option }}</option> 
+                 {% endfor %} 
+             </select> 
+         </div> 
+         {% endif %} 
 
-        {# 4. Bulk Download Button #}
-        {% if honors %}
-        <div class="filter-container">
-            <button id="download-zip-btn" class="btn btn-sm btn-outline btn-primary" title="下载当前筛选结果的图片(JPG格式)为ZIP文件">
-                <span class="loading loading-spinner loading-xs hidden"></span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                打包下载
-            </button>
-            <button id="download-excel-btn" class="btn btn-sm btn-outline btn-secondary" title="下载当前表格视图为Excel文件">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                下载视图 (Excel)
-            </button>
-        </div>
-         {% endif %}
+         {# 4. Bulk Download Button #} 
+         {% if honors %} 
+         <div class="filter-container"> 
+             <div class="dropdown dropdown-end"> 
+                 <label tabindex="0" class="btn btn-sm btn-outline btn-primary"> 
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> 
+                     批量下载 
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-current ml-1" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg> 
+                 </label> 
+                 <ul tabindex="0" class="dropdown-content z-[20] menu p-2 shadow bg-base-200 rounded-box w-56 mt-2"> 
+                     {# 选项1: 下载JPG压缩包 #} 
+                     <li> 
+                         <a id="download-jpg-zip-btn" title="将当前筛选结果的图片打包为ZIP文件"> 
+                            <span class="loading loading-spinner loading-xs hidden"></span> 
+                            下载为 JPG (.zip) 
+                         </a> 
+                     </li> 
+                     {# 选项2: 下载独立PDF压缩包 #} 
+                     <li> 
+                         <a id="download-pdf-zip-btn" title="将当前筛选结果的每张图片转为一个独立的PDF，并打包下载"> 
+                            <span class="loading loading-spinner loading-xs hidden"></span> 
+                            下载为 PDF (.zip) 
+                         </a> 
+                     </li> 
+                     <div class="divider my-1"></div> 
+                     {# 选项3: 下载Excel表格 #} 
+                      <li> 
+                         <a id="download-excel-btn" title="下载当前表格视图为Excel文件"> 
+                            下载表格 (.xlsx) 
+                         </a> 
+                     </li> 
+                 </ul> 
+             </div> 
+         </div> 
+         {% endif %} 
 
-    </div> {# End filters-container #}
-</div> {# End filters-header #}
-
-
-{# --- 表格区域 --- #}
-<div class="table-container shadow-md">
-    <div class="overflow-x-auto">
-      <table class="table table-zebra table-pin-rows table-pin-cols w-full">
-        <thead>
-          <tr>
-            <th>荣誉名称</th>
-            <th>类型</th>
-            <th>等级</th>
-            <th>获得日期</th>
-            <th>颁发单位</th>
-            <th>下载证明 (JPG)</th>
-          </tr>
-        </thead>
-        <tbody id="honors-table-body"> {# 给 tbody 一个 ID 便于 JS 操作 #}
-          {% if honors %}
-              {% for honor in honors %}
-              {# 【修改】添加 data-name 属性 #}
-              <tr data-id="{{ honor.id }}" data-type="{{ honor.type | escape }}" data-level="{{ honor.display_level | escape }}" data-name="{{ honor.name | escape }}">
-                <td class="font-medium">{{ honor.name }}</td>
-                <td>{{ honor.type }}</td>
-                <td>
-                    {# 等级徽章 (示例, 可自行美化) #}
-                    {% set level_color = 'badge-ghost' %}
-
-                    <span class="badge {{ level_color }} badge-md">{{ honor.display_level }}</span>
-                </td>
-                <td>{{ honor.date }}</td>
-                <td title="{{ honor.stamp }}{% if honor.stamp_other %} / {{ honor.stamp_other }}{% endif %}">
-                    {{ honor.stamp | truncate(30) }}
-                    {% if honor.stamp_other %}<span class="tooltip" data-tip="还有其他颁发单位: {{ honor.stamp_other }}"><span class="badge badge-outline badge-xs ml-1">+1</span></span>{% endif %}
-                </td>
-                <td>
-                  {% if honor.image_filename %}
-                  <a href="{{ url_for('download_honor_image_jpg', honor_id=honor.id) }}"
-                     class="btn btn-xs btn-outline btn-secondary"
-                     download>
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                     下载JPG
-                  </a>
-                  {% else %}
-                  <span class="text-xs text-base-content/50 italic">无文件</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-          {% else %}
-              <tr>
-                  <td colspan="6" class="text-center text-base-content/70 py-6">
-                      {% if search_query %}
-                          未能找到名称包含 “<strong>{{ search_query }}</strong>” 的荣誉记录。
-                          <a href="{{ url_for('honor_table', filter_date=selected_date_filter) }}" class="btn btn-xs btn-link">清空搜索</a>
-                      {% elif selected_date_filter != 'all' %}
-                          在 “{{ filter_text }}” 内没有荣誉记录。
-                          <a href="{{ url_for('honor_table') }}" class="btn btn-xs btn-link">查看全部时间</a>
-                      {% else %}
-                          您还没有添加任何荣誉记录。<a href="{{ url_for('add_honor') }}" class="link link-primary ml-2">立即添加</a>
-                      {% endif %}
-                  </td>
-              </tr>
-          {% endif %}
-        </tbody>
-        {# "No results" message for client-side filtering #}
-         <tbody id="no-honors-message-body" class="hidden">
-             <tr>
-                 <td colspan="6" class="text-center text-warning py-6">
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
-                      在当前视图中，未找到符合所选条件的荣誉记录。
-                     <button class="btn btn-xs btn-link" onclick="resetClientFilters()">重置筛选</button>
-                 </td>
-             </tr>
-         </tbody>
-      </table>
-    </div>
-</div>
-
-{# Toast for messages #}
-<div id="toast-container" class="toast toast-top toast-center z-[100]">
-    {# Success Toast #}
-    <div id="toast-success" class="alert alert-success shadow-lg hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span id="toast-success-message">操作成功！</span>
-    </div>
-    {# Error Toast #}
-    <div id="toast-error" class="alert alert-error shadow-lg hidden">
-         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span id="toast-error-message">操作失败！</span>
-    </div>
-     {# Info Toast #}
-    <div id="toast-info" class="alert alert-info shadow-lg hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span id="toast-info-message">提示信息。</span>
-    </div>
-</div>
+     </div> {# End filters-container #} 
+ </div> {# End filters-header #} 
 
 
-{% endblock %}
+ {# --- 表格区域 --- #} 
+ <div class="table-container shadow-md"> 
+     <div class="overflow-x-auto"> 
+       <table class="table table-zebra table-pin-rows table-pin-cols w-full"> 
+         <thead> 
+           <tr> 
+             <th>荣誉名称</th> 
+             <th>类型</th> 
+             <th>等级</th> 
+             <th>获得日期</th> 
+             <th>颁发单位</th> 
+             <th class="text-center">操作</th> 
+           </tr> 
+         </thead> 
+         <tbody id="honors-table-body"> {# 给 tbody 一个 ID 便于 JS 操作 #} 
+           {% if honors %} 
+               {% for honor in honors %} 
+               {# 【修改】添加 data-name 属性 #} 
+               <tr data-id="{{ honor.id }}" data-type="{{ honor.type | escape }}" data-level="{{ honor.display_level | escape }}" data-name="{{ honor.name | escape }}"> 
+                 <td class="font-medium">{{ honor.name }}</td> 
+                 <td>{{ honor.type }}</td> 
+                 <td> 
+                     {# 等级徽章 (示例, 可自行美化) #} 
+                     {% set level_color = 'badge-ghost' %} 
 
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Element References ---
-    const keywordSearchInput = document.getElementById('keyword-search-input'); // 【新增】
-    const dateFilterSelect = document.getElementById('date-filter-select');
-    const honorTypeFilterSelect = document.getElementById('honor-type-filter');
-    const honorLevelFilterSelect = document.getElementById('honor-level-filter');
-    const honorsTableBody = document.getElementById('honors-table-body');
-    const noHonorsMessageBody = document.getElementById('no-honors-message-body');
-    const downloadZipBtn = document.getElementById('download-zip-btn');
-    const downloadExcelBtn = document.getElementById('download-excel-btn');
-    const downloadZipBtnLoading = downloadZipBtn ? downloadZipBtn.querySelector('.loading') : null;
+                     <span class="badge {{ level_color }} badge-md border-1" style="border-color:white;">{{ honor.display_level }}</span> 
+                 </td> 
+                 <td>{{ honor.date }}</td> 
+                 <td title="{{ honor.stamp }}{% if honor.stamp_other %} / {{ honor.stamp_other }}{% endif %}"> 
+                     {{ honor.stamp | truncate(30) }} 
+                     {% if honor.stamp_other %}<span class="tooltip" data-tip="还有其他颁发单位: {{ honor.stamp_other }}"><span class="badge badge-outline badge-xs ml-1">+1</span></span>{% endif %} 
+                 </td> 
+                 <td class="text-center"> 
+                   {% if honor.image_filename %} 
+                   <div class="flex gap-2 justify-center"> 
+                        <a href="{{ url_for('download_honor_image_jpg', honor_id=honor.id) }}" 
+                           class="btn btn-xs btn-outline btn-secondary" 
+                           download 
+                           title="下载原始图片格式的证明文件 (JPG)"> 
+                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> 
+                           JPG 
+                        </a> 
+                        <a href="{{ url_for('download_honor_pdf', honor_id=honor.id) }}" 
+                           class="btn btn-xs btn-outline btn-accent" 
+                           download 
+                           title="将证明文件下载为PDF格式"> 
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> 
+                            PDF 
+                        </a> 
+                   </div> 
+                   {% else %} 
+                   <span class="text-xs text-base-content/50 italic">无文件</span> 
+                   {% endif %} 
+                 </td> 
+               </tr> 
+               {% endfor %} 
+           {% else %} 
+               <tr> 
+                   <td colspan="6" class="text-center text-base-content/70 py-6"> 
+                       {% if search_query %} 
+                           未能找到名称包含 “<strong>{{ search_query }}</strong>” 的荣誉记录。 
+                           <a href="{{ url_for('honor_table', filter_date=selected_date_filter) }}" class="btn btn-xs btn-link">清空搜索</a> 
+                       {% elif selected_date_filter != 'all' %} 
+                           在 “{{ filter_text }}” 内没有荣誉记录。 
+                           <a href="{{ url_for('honor_table') }}" class="btn btn-xs btn-link">查看全部时间</a> 
+                       {% else %} 
+                           您还没有添加任何荣誉记录。<a href="{{ url_for('add_honor') }}" class="link link-primary ml-2">立即添加</a> 
+                       {% endif %} 
+                   </td> 
+               </tr> 
+           {% endif %} 
+         </tbody> 
+         {# "No results" message for client-side filtering #} 
+          <tbody id="no-honors-message-body" class="hidden"> 
+              <tr> 
+                  <td colspan="6" class="text-center text-warning py-6"> 
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg> 
+                       在当前视图中，未找到符合所选条件的荣誉记录。 
+                      <button class="btn btn-xs btn-link" onclick="resetClientFilters()">重置筛选</button> 
+                  </td> 
+              </tr> 
+          </tbody> 
+       </table> 
+     </div> 
+ </div> 
 
-    // Toast elements
-    const toastSuccess = document.getElementById('toast-success');
-    const toastSuccessMessage = document.getElementById('toast-success-message');
-    const toastError = document.getElementById('toast-error');
-    const toastErrorMessage = document.getElementById('toast-error-message');
-    const toastInfo = document.getElementById('toast-info');
-    const toastInfoMessage = document.getElementById('toast-info-message');
-
-    // --- Function: Show Toast Messages ---
-    function showToast(type = 'info', message = '', duration = 3000) {
-        let toastElement, messageElement;
-        switch (type) {
-            case 'success':
-                toastElement = toastSuccess; messageElement = toastSuccessMessage; break;
-            case 'error':
-                toastElement = toastError; messageElement = toastErrorMessage; break;
-            case 'info':
-            default:
-                toastElement = toastInfo; messageElement = toastInfoMessage; break;
-        }
-        if (!toastElement || !messageElement) {
-            console.warn("Toast elements not found for type:", type);
-            alert(message); // Fallback
-            return;
-        }
-        messageElement.textContent = message;
-        [toastSuccess, toastError, toastInfo].forEach(el => el?.classList.add('hidden'));
-        toastElement.classList.remove('hidden');
-        setTimeout(() => {
-            toastElement.classList.add('hidden');
-        }, duration);
-    }
-
-    /**
-     * 【修改】核心函数，现在包含关键词、类型和等级的客户端筛选
-     */
-    function applyClientFilters() {
-        if (!honorsTableBody || !noHonorsMessageBody) return;
-
-        const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
-        const selectedType = honorTypeFilterSelect ? honorTypeFilterSelect.value : "";
-        const selectedLevel = honorLevelFilterSelect ? honorLevelFilterSelect.value : "";
-
-        const honorRows = honorsTableBody.querySelectorAll('tr[data-id]');
-        let visibleCount = 0;
-
-        honorRows.forEach(row => {
-            const rowName = row.dataset.name ? row.dataset.name.toLowerCase() : "";
-            const rowType = row.dataset.type;
-            const rowLevel = row.dataset.level;
-
-            const nameMatch = (keyword === "" || rowName.includes(keyword));
-            const typeMatch = (selectedType === "" || rowType === selectedType);
-            const levelMatch = (selectedLevel === "" || rowLevel === selectedLevel);
-
-            if (nameMatch && typeMatch && levelMatch) {
-                row.style.display = ''; // Revert to default table-row display
-                visibleCount++;
-            } else {
-                row.style.display = 'none'; // Hide row
-            }
-        });
-
-        // Update "no results" message visibility
-        const isFiltering = keyword !== "" || selectedType !== "" || selectedLevel !== "";
-        const hasOriginalData = honorsTableBody.querySelectorAll('tr[data-id]').length > 0;
-
-        // Show message only if filters are active, no rows are visible, AND there was data initially
-        noHonorsMessageBody.classList.toggle('hidden', !(visibleCount === 0 && isFiltering && hasOriginalData));
-        // Hide the original tbody to prevent empty space when the "no results" message is shown
-        honorsTableBody.classList.toggle('hidden', visibleCount === 0 && isFiltering && hasOriginalData);
-    }
-
-    /*
-        下载 Excel
-     */
-
-        function handleExcelDownload() {
-        if (!honorsTableBody) return;
-
-        const visibleRows = Array.from(honorsTableBody.querySelectorAll('tr[data-id]'))
-                                 .filter(row => row.style.display !== 'none');
-
-        if (visibleRows.length === 0) {
-            showToast('info', '当前视图没有可供下载的数据。');
-            return;
-        }
-
-        // 1. Define Headers (matches the table)
-        const headers = ["荣誉名称", "类型", "等级", "获得日期", "颁发单位"];
-
-        // 2. Extract data from each visible row into an array of arrays
-        const data = [headers]; // Start with the header row
-        visibleRows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            const rowData = [
-                cells[0].textContent.trim(), // 荣誉名称
-                cells[1].textContent.trim(), // 类型
-                cells[2].textContent.trim(), // 等级
-                cells[3].textContent.trim(), // 获得日期
-                cells[4].textContent.trim(), // 颁发单位
-            ];
-            data.push(rowData);
-        });
-
-        // 3. Use SheetJS to create and download the workbook
-        try {
-            // Create a worksheet from the array of arrays
-            const ws = XLSX.utils.aoa_to_sheet(data);
-
-            // Create a new workbook
-            const wb = XLSX.utils.book_new();
-
-            // Append the worksheet to the workbook, with a sheet name "Honors"
-            XLSX.utils.book_append_sheet(wb, ws, "Honors");
-
-            // Generate the file and trigger the download
-            const today = new Date().toISOString().slice(0, 10);
-            const filename = `honors_view_${today}.xlsx`;
-            XLSX.writeFile(wb, filename);
-
-            showToast('success', 'Excel文件已开始下载。');
-
-        } catch (error) {
-            console.error("Error creating Excel file:", error);
-            showToast('error', '生成Excel文件时出错。');
-        }
-    }
-
-    // 更新 DOM 引用和事件监听器
-
-    if (downloadExcelBtn) {
-        downloadExcelBtn.addEventListener('click', handleExcelDownload);
-    }
-
-    /**
-     * 【修改】重置所有客户端筛选器
-     */
-    window.resetClientFilters = function() { // <--- 修改这里
-        if (keywordSearchInput) keywordSearchInput.value = "";
-        if (honorTypeFilterSelect) honorTypeFilterSelect.value = "";
-        if (honorLevelFilterSelect) honorLevelFilterSelect.value = "";
-        applyClientFilters(); // Re-apply filters to show all rows
-    }; // <--- 别忘了这里可能需要加上分号
+ {# Toast for messages #} 
+ <div id="toast-container" class="toast toast-top toast-center z-[100]"> 
+     {# Success Toast #} 
+     <div id="toast-success" class="alert alert-success shadow-lg hidden"> 
+         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> 
+         <span id="toast-success-message">操作成功！</span> 
+     </div> 
+     {# Error Toast #} 
+     <div id="toast-error" class="alert alert-error shadow-lg hidden"> 
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> 
+         <span id="toast-error-message">操作失败！</span> 
+     </div> 
+      {# Info Toast #} 
+     <div id="toast-info" class="alert alert-info shadow-lg hidden"> 
+         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 
+         <span id="toast-info-message">提示信息。</span> 
+     </div> 
+ </div> 
 
 
-    // --- Event Listener Setup ---
+ {% endblock %} 
 
-    // Server-side filter: Date (reloads the page)
-    if (dateFilterSelect) {
-        dateFilterSelect.addEventListener('change', (event) => {
-            const selectedValue = event.target.value;
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('filter_date', selectedValue);
-            // Preserve search query if it exists
-            const currentSearchQuery = keywordSearchInput ? keywordSearchInput.value : '';
-            if (currentSearchQuery) {
-                currentUrl.searchParams.set('q', currentSearchQuery);
-            } else {
-                currentUrl.searchParams.delete('q');
-            }
-            window.location.href = currentUrl.toString();
-        });
-    }
+ {% block scripts %} 
+ {{ super() }} 
+ <script> 
+ document.addEventListener('DOMContentLoaded', () => { 
+     // --- DOM Element References --- 
+     const keywordSearchInput = document.getElementById('keyword-search-input'); // 【新增】 
+     const dateFilterSelect = document.getElementById('date-filter-select'); 
+     const honorTypeFilterSelect = document.getElementById('honor-type-filter'); 
+     const honorLevelFilterSelect = document.getElementById('honor-level-filter'); 
+     const honorsTableBody = document.getElementById('honors-table-body'); 
+     const noHonorsMessageBody = document.getElementById('no-honors-message-body'); 
+     const downloadJpgZipBtn = document.getElementById('download-jpg-zip-btn'); 
+     const downloadPdfZipBtn = document.getElementById('download-pdf-zip-btn'); 
+     const downloadExcelBtn = document.getElementById('download-excel-btn'); 
+     // Toast elements 
+     const toastSuccess = document.getElementById('toast-success'); 
+     const toastSuccessMessage = document.getElementById('toast-success-message'); 
+     const toastError = document.getElementById('toast-error'); 
+     const toastErrorMessage = document.getElementById('toast-error-message'); 
+     const toastInfo = document.getElementById('toast-info'); 
+     const toastInfoMessage = document.getElementById('toast-info-message'); 
 
-    // Client-side filters (real-time, no reload)
-    if (keywordSearchInput) {
-        keywordSearchInput.addEventListener('input', applyClientFilters);
-    }
-    if (honorTypeFilterSelect) {
-        honorTypeFilterSelect.addEventListener('change', applyClientFilters);
-    }
-    if (honorLevelFilterSelect) {
-        honorLevelFilterSelect.addEventListener('change', applyClientFilters);
-    }
+     // --- Function: Show Toast Messages --- 
+     function showToast(type = 'info', message = '', duration = 3000) { 
+         let toastElement, messageElement; 
+         switch (type) { 
+             case 'success': 
+                 toastElement = toastSuccess; messageElement = toastSuccessMessage; break; 
+             case 'error': 
+                 toastElement = toastError; messageElement = toastErrorMessage; break; 
+             case 'info': 
+             default: 
+                 toastElement = toastInfo; messageElement = toastInfoMessage; break; 
+         } 
+         if (!toastElement || !messageElement) { 
+             console.warn("Toast elements not found for type:", type); 
+             alert(message); // Fallback 
+             return; 
+         } 
+         messageElement.textContent = message; 
+         [toastSuccess, toastError, toastInfo].forEach(el => el?.classList.add('hidden')); 
+         toastElement.classList.remove('hidden'); 
+         setTimeout(() => { 
+             toastElement.classList.add('hidden'); 
+         }, duration); 
+     } 
 
-    // Bulk Download Button Click
-    if (downloadZipBtn) {
-        downloadZipBtn.addEventListener('click', async () => {
-             if (!honorsTableBody || !downloadZipBtn) return;
-            const visibleRows = Array.from(honorsTableBody.querySelectorAll('tr[data-id]'))
-                                     .filter(row => row.style.display !== 'none');
-            const honorIdsToDownload = visibleRows.map(row => row.dataset.id).filter(id => id);
+     /** * 【修改】核心函数，现在包含关键词、类型和等级的客户端筛选 
+      */ 
+     function applyClientFilters() { 
+         if (!honorsTableBody || !noHonorsMessageBody) return; 
 
-            if (honorIdsToDownload.length === 0) {
-                showToast('info', '当前视图没有可供下载的荣誉记录。');
-                return;
-            }
+         const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : ""; 
+         const selectedType = honorTypeFilterSelect ? honorTypeFilterSelect.value : ""; 
+         const selectedLevel = honorLevelFilterSelect ? honorLevelFilterSelect.value : ""; 
 
-            if (downloadZipBtnLoading) downloadZipBtnLoading.classList.remove('hidden');
-            downloadZipBtn.disabled = true;
+         const honorRows = honorsTableBody.querySelectorAll('tr[data-id]'); 
+         let visibleCount = 0; 
 
-            try {
-                const response = await fetch("{{ url_for('download_honors_zip') }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/zip' },
-                    body: JSON.stringify({ honor_ids: honorIdsToDownload })
-                });
+         honorRows.forEach(row => { 
+             const rowName = row.dataset.name ? row.dataset.name.toLowerCase() : ""; 
+             const rowType = row.dataset.type; 
+             const rowLevel = row.dataset.level; 
 
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const contentDisposition = response.headers.get('content-disposition');
-                    let filename = 'honors_download.zip'; // Default
-                    if (contentDisposition) {
-                        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'";]+)['"]?/);
-                        if (filenameMatch && filenameMatch[1]) {
-                             filename = decodeURIComponent(filenameMatch[1]);
-                        } else {
-                             const simpleMatch = contentDisposition.match(/filename="(.+?)"/);
-                             if (simpleMatch && simpleMatch[1]) filename = simpleMatch[1];
-                        }
-                    }
-                    const link = document.createElement('a');
-                    link.href = window.URL.createObjectURL(blob);
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(link.href);
-                    showToast('success', `成功开始下载 ${filename}`);
-                } else {
-                     let errorMsg = `下载失败 (${response.status})`;
-                     try {
-                         const errorResult = await response.json();
-                         if (errorResult && errorResult.error) errorMsg = errorResult.error;
-                     } catch (e) { /* Ignore parsing error */ }
-                     showToast('error', errorMsg);
-                }
-            } catch (error) {
-                showToast('error', '下载请求时发生网络或脚本错误。');
-            } finally {
-                if (downloadZipBtnLoading) downloadZipBtnLoading.classList.add('hidden');
-                downloadZipBtn.disabled = false;
-            }
-        });
-    }
+             const nameMatch = (keyword === "" || rowName.includes(keyword)); 
+             const typeMatch = (selectedType === "" || rowType === selectedType); 
+             const levelMatch = (selectedLevel === "" || rowLevel === selectedLevel); 
 
-    // Initial run on page load
-    // The server already pre-filters by date and 'q'. This just applies client filters.
-    applyClientFilters();
-    console.log("个人荣誉表页面加载完成，客户端筛选已初始化。");
-});
-</script>
-{% endblock %}
+             if (nameMatch && typeMatch && levelMatch) { 
+                 row.style.display = ''; // Revert to default table-row display 
+                 visibleCount++; 
+             } else { 
+                 row.style.display = 'none'; // Hide row 
+             } 
+         }); 
+
+         // Update "no results" message visibility 
+         const isFiltering = keyword !== "" || selectedType !== "" || selectedLevel !== ""; 
+         const hasOriginalData = honorsTableBody.querySelectorAll('tr[data-id]').length > 0; 
+
+         // Show message only if filters are active, no rows are visible, AND there was data initially 
+         noHonorsMessageBody.classList.toggle('hidden', !(visibleCount === 0 && isFiltering && hasOriginalData)); 
+         // Hide the original tbody to prevent empty space when the "no results" message is shown 
+         honorsTableBody.classList.toggle('hidden', visibleCount === 0 && isFiltering && hasOriginalData); 
+     } 
+
+     /* 下载 Excel 
+      */ 
+
+         function handleExcelDownload() { 
+         if (!honorsTableBody) return; 
+
+         const visibleRows = Array.from(honorsTableBody.querySelectorAll('tr[data-id]')) 
+                                  .filter(row => row.style.display !== 'none'); 
+
+         if (visibleRows.length === 0) { 
+             showToast('info', '当前视图没有可供下载的数据。'); 
+             return; 
+         } 
+
+         // 1. Define Headers (matches the table) 
+         const headers = ["荣誉名称", "类型", "等级", "获得日期", "颁发单位"]; 
+
+         // 2. Extract data from each visible row into an array of arrays 
+         const data = [headers]; // Start with the header row 
+         visibleRows.forEach(row => { 
+             const cells = row.querySelectorAll('td'); 
+             const rowData = [ 
+                 cells[0].textContent.trim(), // 荣誉名称 
+                 cells[1].textContent.trim(), // 类型 
+                 cells[2].textContent.trim(), // 等级 
+                 cells[3].textContent.trim(), // 获得日期 
+                 cells[4].textContent.trim(), // 颁发单位 
+             ]; 
+             data.push(rowData); 
+         }); 
+
+         // 3. Use SheetJS to create and download the workbook 
+         try { 
+             // Create a worksheet from the array of arrays 
+             const ws = XLSX.utils.aoa_to_sheet(data); 
+
+             // Create a new workbook 
+             const wb = XLSX.utils.book_new(); 
+
+             // Append the worksheet to the workbook, with a sheet name "Honors" 
+             XLSX.utils.book_append_sheet(wb, ws, "Honors"); 
+
+             // Generate the file and trigger the download 
+             const today = new Date().toISOString().slice(0, 10); 
+             const filename = `honors_view_${today}.xlsx`; 
+             XLSX.writeFile(wb, filename); 
+
+             showToast('success', 'Excel文件已开始下载。'); 
+
+         } catch (error) { 
+             console.error("Error creating Excel file:", error); 
+             showToast('error', '生成Excel文件时出错。'); 
+         } 
+     } 
+
+         async function handleBulkDownload(buttonElement, endpoint, fileType) { 
+         if (!buttonElement || !honorsTableBody) return; 
+
+         // 获取当前可见的所有行的荣誉ID 
+         const visibleRows = Array.from(honorsTableBody.querySelectorAll('tr[data-id]')) 
+                                  .filter(row => row.style.display !== 'none'); 
+         const honorIdsToDownload = visibleRows.map(row => row.dataset.id).filter(id => id); 
+
+         if (honorIdsToDownload.length === 0) { 
+             showToast('info', '当前视图没有可供下载的荣誉记录。'); 
+             return; 
+         } 
+
+         const loadingSpinner = buttonElement.querySelector('.loading'); 
+         if (loadingSpinner) loadingSpinner.classList.remove('hidden'); 
+         buttonElement.classList.add('disabled', 'pointer-events-none'); // 禁用按钮 
+
+         try { 
+             const response = await fetch(endpoint, { 
+                 method: 'POST', 
+                 headers: {  
+                     'Content-Type': 'application/json', 
+                     'Accept': 'application/zip' // 明确期望接收ZIP 
+                 }, 
+                 body: JSON.stringify({ honor_ids: honorIdsToDownload }) 
+             }); 
+
+             if (response.ok) { 
+                 const blob = await response.blob(); 
+                 const contentDisposition = response.headers.get('content-disposition'); 
+                 let filename = `honors_download.${fileType}`; // 默认文件名 
+                 if (contentDisposition) { 
+                     const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'";]+)['"]?/); 
+                     if (filenameMatch && filenameMatch[1]) { 
+                          filename = decodeURIComponent(filenameMatch[1]); 
+                     } else { 
+                          const simpleMatch = contentDisposition.match(/filename="(.+?)"/); 
+                          if (simpleMatch && simpleMatch[1]) filename = simpleMatch[1]; 
+                     } 
+                 } 
+                 // 创建并触发下载链接 
+                 const link = document.createElement('a'); 
+                 link.href = window.URL.createObjectURL(blob); 
+                 link.download = filename; 
+                 document.body.appendChild(link); 
+                 link.click(); 
+                 document.body.removeChild(link); 
+                 window.URL.revokeObjectURL(link.href); 
+                 // 使用服务器返回的flash消息，或者一个通用成功消息 
+                 const flashMessage = response.headers.get('X-Flash-Message'); 
+                 showToast('success', flashMessage || `成功开始下载 ${filename}`); 
+             } else { 
+                  let errorMsg = `下载失败 (${response.status})`; 
+                  try { 
+                      const errorResult = await response.json(); 
+                      if (errorResult && errorResult.error) errorMsg = errorResult.error; 
+                  } catch (e) { /* 忽略JSON解析错误 */ } 
+                  showToast('error', errorMsg); 
+             } 
+         } catch (error) { 
+             console.error("Download Error:", error); 
+             showToast('error', '下载请求时发生网络或脚本错误。'); 
+         } finally { 
+             if (loadingSpinner) loadingSpinner.classList.add('hidden'); 
+             buttonElement.classList.remove('disabled', 'pointer-events-none'); // 恢复按钮 
+             // 点击后让下拉菜单消失 
+             if (document.activeElement) document.activeElement.blur(); 
+         } 
+     } 
+
+
+     // 更新 DOM 引用和事件监听器 
+
+     if (downloadExcelBtn) { 
+         downloadExcelBtn.addEventListener('click', handleExcelDownload); 
+     } 
+
+     /** * 【修改】重置所有客户端筛选器 
+      */ 
+     window.resetClientFilters = function() { // <--- 修改这里 
+         if (keywordSearchInput) keywordSearchInput.value = ""; 
+         if (honorTypeFilterSelect) honorTypeFilterSelect.value = ""; 
+         if (honorLevelFilterSelect) honorLevelFilterSelect.value = ""; 
+         applyClientFilters(); // Re-apply filters to show all rows 
+     }; // <--- 别忘了这里可能需要加上分号 
+
+
+     // --- Event Listener Setup --- 
+
+     // Server-side filter: Date (reloads the page) 
+     if (dateFilterSelect) { 
+         dateFilterSelect.addEventListener('change', (event) => { 
+             const selectedValue = event.target.value; 
+             const currentUrl = new URL(window.location.href); 
+             currentUrl.searchParams.set('filter_date', selectedValue); 
+             // Preserve search query if it exists 
+             const currentSearchQuery = keywordSearchInput ? keywordSearchInput.value : ''; 
+             if (currentSearchQuery) { 
+                 currentUrl.searchParams.set('q', currentSearchQuery); 
+             } else { 
+                 currentUrl.searchParams.delete('q'); 
+             } 
+             window.location.href = currentUrl.toString(); 
+         }); 
+     } 
+
+     // Client-side filters (real-time, no reload) 
+     if (keywordSearchInput) { 
+         keywordSearchInput.addEventListener('input', applyClientFilters); 
+     } 
+     if (honorTypeFilterSelect) { 
+         honorTypeFilterSelect.addEventListener('change', applyClientFilters); 
+     } 
+     if (honorLevelFilterSelect) { 
+         honorLevelFilterSelect.addEventListener('change', applyClientFilters); 
+     } 
+
+     if (downloadJpgZipBtn) { 
+         downloadJpgZipBtn.addEventListener('click', (e) => { 
+             e.preventDefault(); 
+             handleBulkDownload(downloadJpgZipBtn, "{{ url_for('download_honors_zip') }}", 'zip'); 
+         }); 
+     } 
+
+     // 2. 下载 PDF ZIP (新功能) 
+     if (downloadPdfZipBtn) { 
+         downloadPdfZipBtn.addEventListener('click', (e) => { 
+             e.preventDefault(); 
+             handleBulkDownload(downloadPdfZipBtn, "{{ url_for('download_individual_pdfs_zip') }}", 'zip'); 
+         }); 
+     } 
+      
+     // 3. 下载 Excel 
+     if (downloadExcelBtn) { 
+         downloadExcelBtn.addEventListener('click', (e) => { 
+             e.preventDefault(); 
+             handleExcelDownload(); 
+              // 点击后让下拉菜单消失 
+             if (document.activeElement) document.activeElement.blur(); 
+         }); 
+     } 
+
+     // 页面加载时初始化 
+     applyClientFilters(); 
+     console.log("个人荣誉表页面加载完成，客户端筛选和下载功能已初始化。"); 
+ }); 
+ </script> 
+ {% endblock %}

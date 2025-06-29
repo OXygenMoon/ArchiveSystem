@@ -178,15 +178,27 @@ def index():
     # 未登录用户看到的是带登录/注册按钮的欢迎页
     return render_template('index.html', majors = MAJOR_TYPE)
 
+# main.py
+
 @app.route('/home')
 @login_required
 def home():
-    # ... (home 路由保持不变) ...
     username = session.get('username')
     users = load_user_data()
 
     user_info = users.get(username, {})
     current_motto = user_info.get('motto', '')
+
+    # --- 开始修改 ---
+    # 1. 获取多选筛选参数，参数将以逗号分隔的字符串形式传来
+    #    我们用 .getlist() 也可以，但为了与前端 JS 逻辑（用逗号拼接）保持一致，这里用 split
+    selected_types_str = request.args.get('filter_type', '')
+    selected_levels_str = request.args.get('filter_level', '')
+    
+    # 2. 将字符串转换为列表，并去除空值
+    selected_types = [t.strip() for t in selected_types_str.split(',') if t.strip()]
+    selected_levels = [l.strip() for l in selected_levels_str.split(',') if l.strip()]
+    # --- 修改结束 ---
 
     response_data = {
         'username': username,
@@ -197,7 +209,10 @@ def home():
         'employment_duration': session.get('employment_duration'),
         'motto': current_motto,
         'honor_types': HONOR_TYPE,
-        'honor_levels': LEVEL_TYPE
+        'honor_levels': LEVEL_TYPE,
+        # --- 新增：将选择的列表传递给模板，以便恢复状态 ---
+        'selected_types': selected_types,
+        'selected_levels': selected_levels
     }
 
     honors_data = load_honors_data()
@@ -205,7 +220,9 @@ def home():
 
     total_honor_count_unfiltered = len(user_honors_raw)
     response_data['total_honor_count'] = total_honor_count_unfiltered
-
+    
+    # 未经筛选的统计数据（保持不变）
+    # ... (这部分统计逻辑保持不变) ...
     all_possible_types = HONOR_TYPE
     honor_type_counts_unfiltered = {honor_type: 0 for honor_type in all_possible_types}
     for honor in user_honors_raw:
@@ -222,21 +239,20 @@ def home():
             honor_level_counts_unfiltered[honor_level] += 1
     response_data['honor_level_counts'] = honor_level_counts_unfiltered
 
+
+    # --- 修改筛选逻辑 ---
     selected_date_filter = request.args.get('filter_date', 'all')
     response_data['selected_date_filter'] = selected_date_filter
     today = datetime.date.today()
     cutoff_date = None
-    try:
-        if selected_date_filter == 'last_year':
-            cutoff_date = today - relativedelta(years=1)
-        elif selected_date_filter == 'last_3_years':
-            cutoff_date = today - relativedelta(years=3)
-        elif selected_date_filter == 'last_5_years':
-            cutoff_date = today - relativedelta(years=5)
-    except Exception as e:
-        logger.error(f"计算 cutoff_date 时出错: {e}")
-        cutoff_date = None
+    if selected_date_filter == 'last_year':
+        cutoff_date = today - relativedelta(years=1)
+    elif selected_date_filter == 'last_3_years':
+        cutoff_date = today - relativedelta(years=3)
+    elif selected_date_filter == 'last_5_years':
+        cutoff_date = today - relativedelta(years=5)
 
+    # 1. 先按日期筛选
     filtered_honors = []
     if cutoff_date:
         for honor in user_honors_raw:
@@ -245,7 +261,17 @@ def home():
                 filtered_honors.append(honor)
     else:
         filtered_honors = user_honors_raw
+        
+    # 2. 接着按类型筛选 (如果用户选择了类型)
+    if selected_types:
+        filtered_honors = [h for h in filtered_honors if h.get('type') in selected_types]
 
+    # 3. 最后按等级筛选 (如果用户选择了等级)
+    if selected_levels:
+        filtered_honors = [h for h in filtered_honors if (h.get('honor_level') or h.get('level')) in selected_levels]
+
+
+    # 排序并传递给模板
     user_honors_sorted_filtered = sorted(
         filtered_honors,
         key=lambda x: parse_date_safe(x.get('date')) or datetime.date.min,
@@ -254,6 +280,7 @@ def home():
     response_data['honors'] = user_honors_sorted_filtered
 
     return render_template('home.html', **response_data)
+
 
 @app.route('/uploads/<username>/<path:filename>')
 @login_required
@@ -1046,6 +1073,92 @@ def sanitize_filename(filename):
     name = re.sub(r'_+', '_', name)
     return name[:200]
 
+@app.route('/download_honor_pdf/<string:honor_id>')
+@login_required
+def download_honor_pdf(honor_id):
+    """Downloads the image for a specific honor, converted to a single-page PDF."""
+    current_username = session.get('username')
+    logger.info(f"用户 '{current_username}' 请求下载荣誉 ID '{honor_id}' 的 PDF 文件")
+    
+    try:
+        # Step 1: Find the honor record and its owner using the helper function.
+        # This allows both the owner and an admin to download the file.
+        honor_to_download, owner_username = find_honor_and_owner(honor_id)
+
+        if not honor_to_download:
+            logger.warning(f"用户 '{current_username}' 尝试下载不存在的荣誉 ID: {honor_id}")
+            abort(404, description="找不到指定的荣誉记录。")
+        
+        # Step 2: Check permissions.
+        if session.get('role') != 'admin' and session.get('username') != owner_username:
+            logger.warning(f"权限不足: 用户 '{current_username}' 尝试下载属于 '{owner_username}' 的荣誉 PDF (ID: {honor_id})")
+            abort(403, description="您无权访问此荣誉的证明文件。")
+
+        image_filename = honor_to_download.get('image_filename')
+        if not image_filename:
+            logger.warning(f"荣誉 ID '{honor_id}' 没有关联的图片文件。")
+            abort(404, description="该荣誉记录没有关联的证明文件。")
+
+        # Step 3: Construct the full path to the image file.
+        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, owner_username))
+        original_image_path = os.path.join(user_upload_folder, image_filename)
+
+        if not os.path.exists(original_image_path):
+            logger.error(f"荣誉 ID '{honor_id}' 的图片文件不存在于路径: {original_image_path}")
+            abort(404, description="找不到对应的图片文件。")
+
+        # Step 4: Open the image with Pillow and convert it to a PDF in memory.
+        img = None
+        try:
+            img = Image.open(original_image_path)
+            
+            # Pillow requires the image to be in 'RGB' mode to save as PDF.
+            if img.mode != 'RGB':
+                # Create a white background for images with transparency (e.g., RGBA, P)
+                if img.mode in ('RGBA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    # Ensure mask is correctly handled
+                    mask = img.convert('RGBA').split()[3] if img.mode == 'P' else img.split()[3]
+                    background.paste(img, mask=mask)
+                    img_rgb = background
+                else:
+                    img_rgb = img.convert('RGB')
+                img.close()
+            else:
+                img_rgb = img
+
+            pdf_buffer = io.BytesIO()
+            # Save the RGB image into the buffer as a PDF file.
+            img_rgb.save(pdf_buffer, format='PDF', resolution=100.0, save_all=False)
+            img_rgb.close()
+            pdf_buffer.seek(0)
+
+        except Exception as conv_e:
+            if img: img.close()
+            logger.error(f"将图片 '{image_filename}' 转换为 PDF 时出错: {conv_e}", exc_info=True)
+            abort(500, description="图片格式转换失败，无法生成PDF。")
+
+        # Step 5: Prepare a user-friendly download filename and send the file.
+        honor_name = honor_to_download.get('name', 'honor')
+        honor_date = honor_to_download.get('date', '')
+        download_filename = sanitize_filename(f"{honor_name}_{honor_date}.pdf")
+        
+        logger.info(f"成功将图片 '{image_filename}' 转换为PDF，准备发送为 '{download_filename}'")
+
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=download_filename
+        )
+
+    except FileNotFoundError:
+         logger.error(f"文件未找到错误处理荣誉ID '{honor_id}' 的 PDF 下载请求。")
+         abort(404, description="找不到图片文件。")
+    except Exception as e:
+        logger.error(f"下载并转换荣誉图片为 PDF (ID '{honor_id}') 时发生错误: {e}", exc_info=True)
+        abort(500, description="处理PDF下载时发生服务器内部错误。")
+
 
 @app.route('/download_honor_image/<string:honor_id>/jpg')
 @login_required
@@ -1112,6 +1225,108 @@ def download_honor_image_jpg(honor_id):
     except Exception as e:
         logger.error(f"下载并转换荣誉图片 ID '{honor_id}' 时发生错误: {e}", exc_info=True)
         abort(500, description="处理图片下载时发生服务器内部错误。")
+
+@app.route('/download_individual_pdfs_zip', methods=['POST'])
+@login_required
+def download_individual_pdfs_zip():
+    """将请求的多个荣誉图片分别转为独立的PDF，并打包成一个ZIP文件下载。"""
+    current_username = session.get('username')
+    logger.info(f"用户 '{current_username}' 请求下载独立的PDF压缩包")
+
+    if not request.is_json:
+        return jsonify(error="请求必须是 JSON 格式"), 400
+
+    data = request.get_json()
+    honor_ids = data.get('honor_ids')
+
+    if not isinstance(honor_ids, list) or not honor_ids:
+        return jsonify(error="请求体必须包含一个非空的 'honor_ids' 列表"), 400
+
+    logger.info(f"用户 '{current_username}' 请求的荣誉 IDs (转PDF): {honor_ids}")
+
+    try:
+        honors_data = load_honors_data()
+        user_honors_all = honors_data.get(current_username, [])
+        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, current_username))
+        honors_to_zip_map = {h['id']: h for h in user_honors_all if h['id'] in honor_ids}
+
+        if len(honors_to_zip_map) != len(set(honor_ids)):
+            missing_or_unowned = set(honor_ids) - set(honors_to_zip_map.keys())
+            logger.warning(f"用户 '{current_username}' PDF(ZIP) 请求的 IDs 包含无效或不属于自己的荣誉: {missing_or_unowned}")
+            return jsonify(error=f"部分请求的荣誉 ID 无效或不属于您。"), 403
+
+        zip_buffer = io.BytesIO()
+        processed_count, skipped_count = 0, 0
+        processed_filenames = set()
+
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # 按日期排序，使压缩包内文件有序
+            sorted_honors = sorted(list(honors_to_zip_map.values()),
+                                   key=lambda x: parse_date_safe(x.get('date')) or datetime.date.min,
+                                   reverse=True)
+                                   
+            for honor in sorted_honors:
+                image_filename = honor.get('image_filename')
+                if not image_filename:
+                    skipped_count += 1
+                    continue
+
+                original_image_path = os.path.join(user_upload_folder, image_filename)
+                if not os.path.exists(original_image_path):
+                    skipped_count += 1
+                    continue
+
+                img = None
+                try:
+                    # 1. 打开原始JPG图片
+                    img = Image.open(original_image_path)
+                    
+                    # 2. 将图片转为RGB模式 (Pillow保存PDF所需)
+                    if img.mode != 'RGB':
+                        img_rgb = img.convert('RGB')
+                        img.close()
+                    else:
+                        img_rgb = img
+
+                    # 3. 在内存中创建一个用于存放单个PDF的缓冲区
+                    pdf_single_buffer = io.BytesIO()
+                    img_rgb.save(pdf_single_buffer, format='PDF', resolution=100.0)
+                    img_rgb.close() # 释放图像内存
+
+                    # 4. 准备写入ZIP的文件名
+                    base_name = sanitize_filename(f"{honor.get('name', 'honor')}_{honor.get('date', '')}")
+                    zip_entry_name = f"{base_name}.pdf" # 文件扩展名为 .pdf
+                    counter = 1
+                    while zip_entry_name in processed_filenames:
+                        zip_entry_name = f"{base_name}_{counter}.pdf"
+                        counter += 1
+                    processed_filenames.add(zip_entry_name)
+                    
+                    # 5. 将单个PDF的内容写入ZIP文件
+                    zipf.writestr(zip_entry_name, pdf_single_buffer.getvalue())
+                    pdf_single_buffer.close() # 关闭单个PDF的缓冲区
+                    
+                    processed_count += 1
+                    logger.debug(f"成功将图片 '{image_filename}' 转换为PDF并添加 '{zip_entry_name}' 到ZIP文件。")
+
+                except Exception as img_proc_e:
+                    logger.error(f"处理荣誉 ID '{honor['id']}' 的图片 '{image_filename}' 为独立PDF时出错: {img_proc_e}", exc_info=False)
+                    if img: img.close() # 确保异常时关闭
+                    skipped_count += 1
+
+        if processed_count == 0:
+             return jsonify(error="未能成功处理任何请求的图片文件。"), 400
+
+        zip_buffer.seek(0)
+        zip_download_filename = f"{current_username}_honors_pdf_{datetime.date.today().strftime('%Y%m%d')}.zip"
+        logger.info(f"为用户 '{current_username}' 创建PDF的ZIP文件完成。处理: {processed_count}, 跳过: {skipped_count}。发送为 '{zip_download_filename}'")
+
+        return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=zip_download_filename)
+
+    except Exception as e:
+        logger.error(f"创建荣誉的PDF-ZIP文件时发生错误: {e}", exc_info=True)
+        return jsonify(error="创建 ZIP 文件时发生服务器内部错误。"), 500
+
 
 
 @app.route('/download_honors_zip', methods=['POST'])
