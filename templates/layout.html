@@ -27,6 +27,12 @@
             max-width: 1280px;
         }
 
+
+        .navbar {
+            padding: 1px;
+            min-height: 1px;
+        }
+
         /* 限制内容最大宽度 */
         /* 卡片图片样式 */
         .card figure img {
@@ -49,6 +55,9 @@
             animation: fadeOut 1s ease-in-out 5s forwards;
         }
 
+        .alert {
+            z-index: 999;
+        }
         /* 5秒后淡出 */
     </style>
 
@@ -117,25 +126,35 @@
 
             <div class="dropdown dropdown-hover">
                 <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    <a href="{{ url_for('add_honor') }}">荣誉添加</a>
+                    <a href="{{ url_for('add_honor') }}">添加荣誉</a>
                 </div>
             </div>
 
 
             <div class="dropdown dropdown-hover">
                 <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    <a href="{{ url_for('honor_table') }}">荣誉下载</a>
+                    <a href="{{ url_for('honor_table') }}">下载荣誉</a>
                 </div>
             </div>
 
             {% if session.role == 'admin' %}
-                <div class="dropdown dropdown-hover">
-                    <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                        <a href="{{ url_for('admin_all_honors') }}">全校荣誉</a>
-                    </div>
+            <div class="dropdown dropdown-hover">
+                <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
+                    管理模块
                 </div>
+                <ul
+                tabindex="0"
+                class="flex dropdown-content menu bg-base-100 rounded-box z-1 w-60 p-2 shadow-sm"
+                >
+                <div class="flex">
+                    <li><a href="{{ url_for('admin_all_honors') }}">荣誉看板(画廊视图)</a></li>
+                </div>
+                <div class="flex">
+                    <li><a href="{{ url_for('admin_all_honors_table') }}">下载荣誉(列表视图)</a></li>
+                </div>
+                </ul>
+            </div>
             {% endif %}
-
 
         </div>
         <!-- 右侧 -->

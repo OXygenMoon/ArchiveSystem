@@ -1,0 +1,481 @@
+{% extends "layout.html" %}
+
+{% block title %}荣誉总表 (管理员){% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+    /* 样式与 honors_table.html 保持一致 */
+    .table th:first-child, .table td:first-child {
+        position: sticky; left: 0; background-color: inherit; z-index: 1;
+    }
+    /* 【管理员表格特殊样式】固定第二列 */
+    .table th:nth-child(2), .table td:nth-child(2) {
+        position: sticky;
+        left: 220px; /* 匹配第一列的 min-width */
+        background-color: inherit;
+        z-index: 1;
+        border-right: 1px solid hsl(var(--b3));
+    }
+
+    .table td:nth-child(1) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .table th {
+        position: sticky; top: 0; background-color: hsl(var(--b2, var(--b1))); z-index: 2;
+    }
+    .table-container {
+        max-height: 70vh;
+        overflow-y: auto; overflow-x: auto;
+        border: 1px solid hsl(var(--b3, #e5e7eb)); border-radius: 0.5rem;
+    }
+    .table { width: 100%; }
+
+    /* 筛选器样式 (完全采用 honors_table.html 的样式) */
+    .filters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .filters-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem; /* 筛选器之间的间距 */
+    }
+    .filter-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem; /* 标签和输入框之间的间距 */
+    }
+    /* --- 样式修改：缩小标签字体 --- */
+    .filter-container label {
+        font-weight: 500;
+        white-space: nowrap;
+        font-size: 0.75rem; /* 从 sm 调整为 xs */
+        line-height: 1rem;
+    }
+    .filter-container .select, .filter-container .input {
+        min-width: 110px; /* 稍微缩小最小宽度 */
+    }
+    .keyword-search-container {
+        flex-grow: 1;
+        min-width: 160px; /* 稍微缩小最小宽度 */
+    }
+    .menu a .loading, .menu a .icon {
+        vertical-align: middle;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# --- 1. 筛选和标题区域 --- #}
+<div class="filters-header">
+    {# 动态标题 #}
+    {% set filter_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
+    {% set filter_text = filter_map.get(selected_date_filter, '全部时间') %}
+    {% if selected_date_filter == 'custom' and request.args.get('start_date') and request.args.get('end_date') %}
+        {% set filter_text = request.args.get('start_date') + ' 至 ' + request.args.get('end_date') %}
+    {% elif selected_date_filter == 'custom' %}
+        {% set filter_text = '自选时间段' %}
+    {% endif %}
+    <h1 class="text-2xl font-semibold my-0 flex-shrink-0">
+        荣誉总览 (表格)
+        <span class="text-base-content/70 font-normal text-lg">({{ filter_text }})</span>
+    </h1>
+
+    <div class="filters-container">
+        {# 关键词搜索 #}
+        <div class="keyword-search-container" title="按荣誉名称实时搜索">
+            <input type="search" id="keyword-search-input" class="input input-bordered input-sm w-full" placeholder="搜索荣誉名称...">
+        </div>
+
+        {# 时间筛选 Dropdown #}
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal">
+                <span>{{ filter_text }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </label>
+            <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-80 space-y-3">
+                <h4 class="font-bold px-4">筛选时间</h4>
+                <ul class="menu p-0">
+                    <li><a href="{{ url_for('admin_all_honors_table', filter_date='all') }}">全部时间</a></li>
+                    <li><a href="{{ url_for('admin_all_honors_table', filter_date='last_year') }}">一年内</a></li>
+                    <li><a href="{{ url_for('admin_all_honors_table', filter_date='last_3_years') }}">三年内</a></li>
+                    <li><a href="{{ url_for('admin_all_honors_table', filter_date='last_5_years') }}">五年内</a></li>
+                </ul>
+                <div class="divider my-1">或自选范围</div>
+                <div class="space-y-2 px-2">
+                    <div class="form-control">
+                        <label class="label py-0"><span class="label-text-alt">开始日期</span></label>
+                        <input type="date" id="start-date-input" class="input input-bordered input-sm" value="{{ request.args.get('start_date', '') }}">
+                    </div>
+                    <div class="form-control">
+                         <label class="label py-0"><span class="label-text-alt">结束日期</span></label>
+                        <input type="date" id="end-date-input" class="input input-bordered input-sm" value="{{ request.args.get('end_date', '') }}" max="{{ now().strftime('%Y-%m-%d') }}">
+                    </div>
+                </div>
+                <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
+            </div>
+        </div>
+
+        {# 教师筛选 Dropdown #}
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="user-filter-btn">
+                <span id="user-filter-label">筛选教师</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </label>
+            <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                <h4 class="font-bold px-4 mb-2">筛选教师</h4>
+                <div class="max-h-60 overflow-y-auto">
+                {% for username, truename in all_teachers.items()|sort(attribute=1) %}
+                    <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ truename }}</span><input type="checkbox" value="{{ username | escape }}" class="checkbox checkbox-sm checkbox-primary honor-user-cb"/></label></div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        {# 专业筛选 Dropdown #}
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="major-filter-btn">
+                <span id="major-filter-label">筛选专业</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </label>
+            <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                <h4 class="font-bold px-4 mb-2">筛选专业</h4>
+                <div class="max-h-60 overflow-y-auto">
+                {% for major_option in all_majors %}
+                     <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ major_option }}</span><input type="checkbox" value="{{ major_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-major-cb"/></label></div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# 类型筛选 Dropdown #}
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="type-filter-btn">
+                <span id="type-filter-label">筛选类型</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </label>
+            <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                <h4 class="font-bold px-4 mb-2">筛选类型</h4>
+                <div class="max-h-60 overflow-y-auto">
+                {% for type_option in honor_types %}
+                    <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ type_option }}</span><input type="checkbox" value="{{ type_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-type-cb"/></label></div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# 等级筛选 Dropdown #}
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="level-filter-btn">
+                <span id="level-filter-label">筛选等级</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+            </label>
+            <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                 <h4 class="font-bold px-4 mb-2">筛选等级</h4>
+                 <div class="max-h-60 overflow-y-auto">
+                {% for level_option in honor_levels %}
+                    <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ level_option }}</span><input type="checkbox" value="{{ level_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-level-cb"/></label></div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        {# 操作按钮组 #}
+        <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置</button>
+
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-sm btn-accent">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                下载
+            </label>
+            <ul tabindex="0" class="dropdown-content z-[20] menu p-2 shadow bg-base-200 rounded-box w-56 mt-2">
+                <li><a id="download-jpg-zip-btn"><span class="loading loading-spinner loading-xs hidden"></span>下载为 JPG (.zip)</a></li>
+                <li><a id="download-pdf-zip-btn"><span class="loading loading-spinner loading-xs hidden"></span>下载为 PDF (.zip)</a></li>
+                <div class="divider my-1"></div>
+                <li><a id="download-excel-btn">下载表格 (.xlsx)</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{# --- 表格区域 --- #}
+<div class="table-container shadow-md">
+    <div class="overflow-x-auto">
+      <table class="table table-zebra table-pin-rows table-pin-cols w-full" id="all-honors-table">
+        <thead>
+          <tr>
+            <th class="min-w-[220px]">荣誉名称</th>
+            <th class="min-w-[120px]">教师姓名</th>
+            <th class="min-w-[100px]">专业</th>
+            <th class="min-w-[100px]">类型</th>
+            <th class="min-w-[100px]">等级</th>
+            <th class="min-w-[120px]">获得日期</th>
+            <th class="min-w-[220px]">颁发单位</th>
+            <th class="text-center min-w-[150px]">文件操作</th>
+          </tr>
+        </thead>
+        <tbody id="honors-table-body">
+          {% if honors %}
+              {% for honor in honors %}
+              <tr data-id="{{ honor.id }}"
+                  data-name="{{ honor.name|e }}"
+                  data-user="{{ honor.username|e }}"
+                  data-major="{{ honor.major|e }}"
+                  data-type="{{ honor.type|e }}"
+                  data-level="{{ honor.display_level|e }}">
+                <td class="font-medium">{{ honor.name }}</td>
+                <td><div class="font-bold">{{ honor.truename }}</div></td>
+                <td>{{ honor.major }}</td>
+                <td>{{ honor.type }}</td>
+                <td><span class="badge badge-ghost badge-md">{{ honor.display_level }}</span></td>
+                <td>{{ honor.date }}</td>
+                <td title="{{ honor.stamp }}{% if honor.stamp_other %} / {{ honor.stamp_other }}{% endif %}">{{ honor.stamp|truncate(35) }}</td>
+                <td class="text-center">
+                  {% if honor.image_filename %}
+                  <div class="flex gap-2 justify-center">
+                       <a href="{{ url_for('download_honor_image_jpg', honor_id=honor.id) }}" class="btn btn-xs btn-outline btn-secondary" download title="下载JPG格式文件">JPG</a>
+                       <a href="{{ url_for('download_honor_pdf', honor_id=honor.id) }}" class="btn btn-xs btn-outline btn-accent" download title="下载PDF格式文件">PDF</a>
+                  </div>
+                  {% else %}
+                  <span class="text-xs text-base-content/50 italic">无文件</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+          {% else %}
+              <tr>
+                  <td colspan="8" class="text-center text-base-content/70 py-6">
+                      在 "{{ filter_text }}" 内没有荣誉记录。
+                      <a href="{{ url_for('admin_all_honors_table') }}" class="btn btn-xs btn-link">清空筛选</a>
+                  </td>
+              </tr>
+          {% endif %}
+        </tbody>
+        <tbody id="no-honors-message-body" class="hidden">
+             <tr><td colspan="8" class="text-center text-warning py-6">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 inline-block mr-2 align-middle"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                在当前列表中，未找到符合筛选条件的荣誉记录。
+                <button class="btn btn-xs btn-link" onclick="resetClientFilters()">重置筛选</button>
+            </td></tr>
+        </tbody>
+      </table>
+    </div>
+</div>
+
+{# --- 全局 Toast 提示 --- #}
+<div id="toast-container" class="toast toast-top toast-center z-[100]">
+    <div id="toast-success" class="alert alert-success shadow-lg hidden"><span></span></div>
+    <div id="toast-error" class="alert alert-error shadow-lg hidden"><span></span></div>
+    <div id="toast-info" class="alert alert-info shadow-lg hidden"><span></span></div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- 1. DOM 元素引用 ---
+    const tableBody = document.getElementById('honors-table-body');
+    const noResultsBody = document.getElementById('no-honors-message-body');
+    const keywordInput = document.getElementById('keyword-search-input');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    
+    // 新的 Dropdown 筛选器元素
+    const startDateInput = document.getElementById('start-date-input');
+    const endDateInput = document.getElementById('end-date-input');
+    const applyCustomDateBtn = document.getElementById('apply-custom-date-btn');
+
+    const userFilterBtnLabel = document.getElementById('user-filter-label');
+    const majorFilterBtnLabel = document.getElementById('major-filter-label');
+    const typeFilterBtnLabel = document.getElementById('type-filter-label');
+    const levelFilterBtnLabel = document.getElementById('level-filter-label');
+
+    const userCheckboxes = document.querySelectorAll('.honor-user-cb');
+    const majorCheckboxes = document.querySelectorAll('.honor-major-cb');
+    const typeCheckboxes = document.querySelectorAll('.honor-type-cb');
+    const levelCheckboxes = document.querySelectorAll('.honor-level-cb');
+    const allCheckboxes = document.querySelectorAll('.dropdown-content .checkbox');
+
+    // 下载按钮
+    const excelBtn = document.getElementById('download-excel-btn');
+    const jpgZipBtn = document.getElementById('download-jpg-zip-btn');
+    const pdfZipBtn = document.getElementById('download-pdf-zip-btn');
+
+    // --- 2. 函数定义 ---
+
+    // 核心筛选函数
+    function applyAllClientFilters() {
+        if (!tableBody) return;
+        const keyword = keywordInput ? keywordInput.value.trim().toLowerCase() : "";
+        const selectedUsers = Array.from(userCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedMajors = Array.from(majorCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedTypes = Array.from(typeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedLevels = Array.from(levelCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const rows = tableBody.querySelectorAll('tr[data-id]');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const nameMatch = !keyword || (row.dataset.name || "").toLowerCase().includes(keyword);
+            const userMatch = selectedUsers.length === 0 || selectedUsers.includes(row.dataset.user);
+            const majorMatch = selectedMajors.length === 0 || selectedMajors.includes(row.dataset.major);
+            const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(row.dataset.type);
+            const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(row.dataset.level);
+
+            if (nameMatch && userMatch && majorMatch && typeMatch && levelMatch) {
+                row.style.display = ''; visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        const isFiltering = keyword || allCheckboxes.length > 0 && Array.from(allCheckboxes).some(cb => cb.checked);
+        noResultsBody.classList.toggle('hidden', !(visibleCount === 0 && isFiltering && rows.length > 0));
+        tableBody.classList.toggle('hidden', visibleCount === 0 && isFiltering && rows.length > 0);
+
+        updateFilterButtonLabel(userFilterBtnLabel, '教师', selectedUsers.length);
+        updateFilterButtonLabel(majorFilterBtnLabel, '专业', selectedMajors.length);
+        updateFilterButtonLabel(typeFilterBtnLabel, '类型', selectedTypes.length);
+        updateFilterButtonLabel(levelFilterBtnLabel, '等级', selectedLevels.length);
+    }
+
+    function updateFilterButtonLabel(labelElement, prefix, count) {
+        if (!labelElement) return;
+        const button = labelElement.parentElement;
+        if (count > 0) {
+            labelElement.textContent = `筛选${prefix} (${count})`;
+            button.classList.add('btn-active', 'btn-primary');
+        } else {
+            labelElement.textContent = `筛选${prefix}`;
+            button.classList.remove('btn-active', 'btn-primary');
+        }
+    }
+    
+    window.resetClientFilters = () => {
+        if (keywordInput) keywordInput.value = "";
+        allCheckboxes.forEach(cb => cb.checked = false);
+        applyAllClientFilters();
+    };
+
+    // 下载相关函数
+    function showToast(type, message, duration = 3000) {
+        const messageSpan = document.getElementById(`toast-${type}-message`);
+        if (!messageSpan) { alert(message); return; }
+        const toastEl = messageSpan.parentElement;
+        messageSpan.textContent = message;
+        document.querySelectorAll('.toast .alert').forEach(t => t.classList.add('hidden'));
+        toastEl.classList.remove('hidden');
+        setTimeout(() => toastEl.classList.add('hidden'), duration);
+    }
+
+    function handleExcelDownload() {
+        const visibleRows = Array.from(tableBody.querySelectorAll('tr[data-id]')).filter(r => r.style.display !== 'none');
+        if (visibleRows.length === 0) { showToast('info', '当前没有可下载的数据。'); return; }
+        
+        const headers = ["荣誉名称", "教师姓名", "专业", "类型", "等级", "获得日期", "颁发单位"];
+        const data = [headers, ...visibleRows.map(row => {
+            const cells = row.querySelectorAll('td');
+            return [
+                cells[0].textContent.trim(), cells[1].innerText.trim(), cells[2].textContent.trim(),
+                cells[3].textContent.trim(), cells[4].textContent.trim(), cells[5].textContent.trim(),
+                cells[6].getAttribute('title') || cells[6].textContent.trim()
+            ];
+        })];
+        
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "All Honors");
+        XLSX.writeFile(wb, `all_honors_table_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        showToast('success', 'Excel文件已开始下载。');
+    }
+
+    async function handleBulkDownload(buttonElement, endpoint, fileType) {
+        const visibleRows = Array.from(tableBody.querySelectorAll('tr[data-id]')).filter(r => r.style.display !== 'none');
+        const honorIds = visibleRows.map(row => row.dataset.id).filter(id => id);
+        if (honorIds.length === 0) { showToast('info', '当前没有可下载的记录。'); return; }
+
+        const loadingSpinner = buttonElement.querySelector('.loading');
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+        buttonElement.classList.add('disabled', 'pointer-events-none');
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/zip' },
+                body: JSON.stringify({ honor_ids: honorIds })
+            });
+            if (response.ok) {
+                const blob = await response.blob();
+                let filename = `admin_honors_${new Date().toISOString().slice(0, 10)}.${fileType}`;
+                const disposition = response.headers.get('content-disposition');
+                if (disposition && disposition.includes('attachment')) {
+                    const matches = /filename="([^"]+)"/.exec(disposition);
+                    if (matches && matches[1]) filename = matches[1];
+                }
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(link.href);
+                showToast('success', `成功开始下载 ${filename}`);
+            } else {
+                const errorData = await response.json().catch(() => ({ error: '下载失败' }));
+                showToast('error', errorData.error || `下载失败 (${response.status})`);
+            }
+        } catch (error) {
+            showToast('error', '下载请求时发生网络错误。');
+        } finally {
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
+            buttonElement.classList.remove('disabled', 'pointer-events-none');
+            if (document.activeElement) document.activeElement.blur();
+        }
+    }
+
+    // --- 3. 事件绑定 ---
+    if (keywordInput) keywordInput.addEventListener('input', applyAllClientFilters);
+    allCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', () => {
+             window.location.href = "{{ url_for('admin_all_honors_table', filter_date='all') }}";
+        });
+    }
+    
+    if (applyCustomDateBtn) {
+        applyCustomDateBtn.addEventListener('click', () => {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            if (!startDate || !endDate) { return showToast('info', '请同时选择开始和结束日期。'); }
+            if (new Date(startDate) > new Date(endDate)) { return showToast('info', '开始日期不能晚于结束日期。'); }
+            const url = new URL(window.location.href);
+            url.searchParams.set('filter_date', 'custom');
+            url.searchParams.set('start_date', startDate);
+            url.searchParams.set('end_date', endDate);
+            window.location.href = url.toString();
+        });
+    }
+    
+    if(excelBtn) excelBtn.addEventListener('click', (e) => { e.preventDefault(); handleExcelDownload(); if (document.activeElement) document.activeElement.blur(); });
+    if(jpgZipBtn) jpgZipBtn.addEventListener('click', (e) => { e.preventDefault(); handleBulkDownload(e.currentTarget, "{{ url_for('admin_download_honors_zip') }}", 'zip'); });
+    if(pdfZipBtn) pdfZipBtn.addEventListener('click', (e) => { e.preventDefault(); handleBulkDownload(e.currentTarget, "{{ url_for('admin_download_individual_pdfs_zip') }}", 'zip'); });
+
+    // --- 4. 初始化 ---
+    applyAllClientFilters();
+    console.log("管理员荣誉总览表格页加载完成。");
+});
+</script>
+{% endblock %}

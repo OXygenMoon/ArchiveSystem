@@ -1,7 +1,7 @@
 {
     "lzy": {
         "username": "lzy",
-        "password": "scrypt:32768:8:1$AyaU36BJDQqwdwIj$b1ef648b9b4549700a2912ab22da87955050896f34ab57bf83c1f320540608ff18d516c6df00a258ded8e14f8e558cd60e3c108e12e5eb95f3a0c91702367d08",
+        "password": "scrypt:32768:8:1$vhURzeCdQa74Z1ZF$840612c6b1ee1b211dc75738d6f0136a24d7ed4c1bc91a0e8f552fbe486eea82a19c423a875ea39ed710b0c6c24c4e1c8181c140888b4b93c0fd6e6f545a564e",
         "truename": "劳振煜",
         "major": "计算机",
         "department": "",
@@ -14,8 +14,35 @@
         "username": "zy",
         "password": "scrypt:32768:8:1$AEIHYIJeQkcNR1hy$1fe8d430d9ff1c615a954f870cfde059056b769e673882650020970516dbaac984cea1b52b1440c01166bcd69763a95092d92ddb730c913fbe29d89368960f97",
         "truename": "张祎",
-        "major": "计算机",
+        "major": "幼儿教师",
         "employment_day": "2022-08-01",
+        "role": "admin",
+        "motto": ""
+    },
+    "wqw": {
+        "username": "wqw",
+        "password": "scrypt:32768:8:1$jLBtrdOvW0klyV5D$3dd60781025fcbd4455ac11d34d8c0ac4138bdc2f3bb31d9028607f344a566a9c7a8253760137791e229877e2d9a46a92bb876453b995ecf4d667a3614be6f56",
+        "truename": "王琦伟",
+        "major": "计算机",
+        "employment_day": "2025-07-03",
+        "role": "user",
+        "motto": ""
+    },
+    "xaz": {
+        "username": "xaz",
+        "password": "scrypt:32768:8:1$NeRFwsdW1xnhYBuB$7932eac0ed63e2623908633cfe2afc44e46c583d5e11712334ccbb19699e7d13c1a68a865baacf618ecda24c224d3c04e6cc1ca79b069b0925f29c518d28165a",
+        "truename": "谢爱珍",
+        "major": "计算机",
+        "employment_day": "2025-07-03",
+        "role": "user",
+        "motto": ""
+    },
+    "gyf": {
+        "username": "gyf",
+        "password": "scrypt:32768:8:1$sEZA3ilZOVpnkGbP$65da1699bc022069d90525fb71806e43c9f8620204b2dd888c80b858442878c6d867f4cf3fce87981a87a129b80bd720aceca6735a16bce188bbcde8ea0a6ac9",
+        "truename": "顾一帆",
+        "major": "计算机",
+        "employment_day": "2025-07-03",
         "role": "user",
         "motto": ""
     }

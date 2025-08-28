@@ -64,14 +64,20 @@
                                     <span class="badge badge-ghost">普通用户</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center space-x-2">
-                                    <button class="btn btn-sm btn-primary btn-outline" onclick="openResetPasswordModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="重置密码">
+                                <td class="text-center space-x-1">
+                                    <button class="btn btn-sm btn-primary btn-outline" onclick="openResetPasswordModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="自定义重置密码">
                                         重置密码
                                     </button>
+                                    
+                                    <button class="btn btn-sm btn-warning btn-outline" onclick="openResetDefaultPasswordModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="重置为默认密码 123456">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>
+                                        默认密码
+                                    </button>
+                                    
                                     <button class="btn btn-sm btn-secondary btn-outline" onclick="openChangeRoleModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" data-role="{{ user.role }}" title="修改角色">
                                         修改角色
                                     </button>
-                                    <button class="btn btn-sm btn-accent btn-outline" onclick="openDeleteModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="删除用户">
+                                    <button class="btn btn-sm btn-error btn-outline" onclick="openDeleteModal(this)" data-username="{{ user.username }}" data-truename="{{ user.truename }}" title="删除用户">
                                         删除
                                     </button>
                                 </td>
@@ -133,7 +139,7 @@
     <div class="modal-box">
         <form id="resetPasswordForm" method="POST" class="space-y-4">
             <h3 class="font-bold text-lg">重置密码</h3>
-            <p>您正在为用户 <strong id="resetPasswordUsername" class="text-primary"></strong> 重置密码。</p>
+            <p>您正在为用户 <strong id="resetPasswordUsername" class="text-primary"></strong> 自定义新密码。</p>
             <div class="form-control">
                 <label class="label"><span class="label-text">新密码<span class="text-error">*</span> (至少6位)</span></label>
                 <input type="password" name="new_password" class="input input-bordered" required minlength="6" />
@@ -146,6 +152,27 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
+
+<dialog id="resetDefaultPasswordModal" class="modal">
+    <div class="modal-box">
+        <form id="resetDefaultPasswordForm" method="POST">
+            <h3 class="font-bold text-lg text-warning">确认重置密码</h3>
+            <div class="py-4 space-y-2">
+                <p class="bg-warning/10 p-3 rounded-lg text-warning-content">
+                    <strong class="font-bold">请注意！这是一个快捷操作。</strong>
+                </p>
+                <p>您确定要将用户 <strong id="resetDefaultPasswordUsername" class="text-warning"></strong> 的密码重置为默认的 `123456` 吗？</p>
+                <p class="text-sm">建议提醒用户在下次登录后立即修改密码。</p>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="resetDefaultPasswordModal.close()">取消</button>
+                <button type="submit" class="btn btn-warning">确认重置</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 
 <dialog id="changeRoleModal" class="modal">
     <div class="modal-box">
@@ -171,17 +198,17 @@
 <dialog id="deleteUserModal" class="modal">
     <div class="modal-box">
         <form id="deleteUserForm" method="POST">
-            <h3 class="font-bold text-lg text-accent-content">确认删除用户</h3>
+            <h3 class="font-bold text-lg text-error">确认删除用户</h3>
             <div class="py-4 space-y-2">
-                <p class="bg-accent/20 p-3 rounded-lg text-accent-content">
+                <p class="bg-error/10 p-3 rounded-lg text-error-content">
                     <strong class="font-bold">警告：这是一个不可逆操作！</strong>
                 </p>
-                <p>您确定要删除用户 <strong id="deleteUsername" class="text-accent"></strong> 吗？</p>
-                <p>该用户的所有荣誉记录和上传的文件都将被 <strong class="text-accent font-semibold">永久删除</strong>。</p>
+                <p>您确定要删除用户 <strong id="deleteUsername" class="text-error"></strong> 吗？</p>
+                <p>该用户的所有荣誉记录和上传的文件都将被 <strong class="text-error font-semibold">永久删除</strong>。</p>
             </div>
             <div class="modal-action">
                 <button type="button" class="btn btn-ghost" onclick="deleteUserModal.close()">我再想想</button>
-                <button type="submit" class="btn btn-accent">狠心删除</button>
+                <button type="submit" class="btn btn-error">狠心删除</button>
             </div>
         </form>
     </div>
@@ -205,6 +232,21 @@ document.addEventListener('DOMContentLoaded', () => {
         form.action = `/admin/user/reset_password/${username}`;
         usernameSpan.textContent = `${truename} (${username})`;
         resetPasswordModal.showModal();
+    }
+
+    // ▼▼▼ 【新增】打开重置默认密码对话框的函数 ▼▼▼
+    function openResetDefaultPasswordModal(button) {
+        const username = button.dataset.username;
+        const truename = button.dataset.truename;
+        const form = document.getElementById('resetDefaultPasswordForm');
+        const usernameSpan = document.getElementById('resetDefaultPasswordUsername');
+
+        // 设置表单提交的 URL
+        form.action = `/admin/user/reset_password_default/${username}`;
+        // 更新对话框中的用户名
+        usernameSpan.textContent = `${truename} (${username})`;
+        // 显示对话框
+        resetDefaultPasswordModal.showModal();
     }
 
     function openChangeRoleModal(button) {
@@ -234,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Expose functions to global scope to be callable from onclick ---
     window.openResetPasswordModal = openResetPasswordModal;
+    window.openResetDefaultPasswordModal = openResetDefaultPasswordModal; // ▲▲▲ 【新增】暴露新函数 ▲▲▲
     window.openChangeRoleModal = openChangeRoleModal;
     window.openDeleteModal = openDeleteModal;
 });

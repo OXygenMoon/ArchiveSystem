@@ -252,6 +252,238 @@
             "image_filename": "lzy_1750418870_636.jpg",
             "honor_level": "省级",
             "thumb_filename": "lzy_1750418870_636_thumb.jpg"
+        },
+        {
+            "id": "honor_1753433534_167",
+            "name": "嘉善县技术操作能手",
+            "type": "荣誉",
+            "date": "2024-07-01",
+            "stamp": "嘉善县总工会",
+            "stamp_other": "嘉善县人力资源和社会保障局",
+            "image_filename": "lzy_1753433534_167.jpg",
+            "honor_level": "县级",
+            "thumb_filename": "lzy_1753433534_167_thumb.jpg",
+            "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1753433683_366",
+            "name": "2024年嘉善县职业院校师生职业能力大赛优秀指导教师",
+            "type": "荣誉",
+            "date": "2024-05-31",
+            "stamp": "嘉善县教育局",
+            "stamp_other": "嘉善县人力资源和社会保障局",
+            "image_filename": "lzy_1753433683_366.jpg",
+            "honor_level": "县级",
+            "thumb_filename": "lzy_1753433683_366_thumb.jpg",
+            "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1753433849_784",
+            "name": "职业技能等级证书 - 高级工",
+            "type": "荣誉",
+            "date": "2024-06-25",
+            "stamp": "嘉善县职业技能培训与鉴定中心",
+            "stamp_other": "",
+            "image_filename": "lzy_1753433849_784.jpg",
+            "honor_level": "县级",
+            "thumb_filename": "lzy_1753433849_784_thumb.jpg",
+            "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1753434038_504",
+            "name": "计算机程序设计员技能竞赛第三名",
+            "type": "教学比武",
+            "date": "2024-07-01",
+            "stamp": "嘉善县总工会",
+            "stamp_other": "嘉善县人力资源和社会保障局",
+            "image_filename": "lzy_1753434038_504.jpg",
+            "honor_level": "县级",
+            "thumb_filename": "lzy_1753434038_504_thumb.jpg",
+            "original_pdf_filename": null
+        }
+    ],
+    "wqw": [
+        {
+            "id": "honor_1751504311_174",
+            "name": "首批中等职业教育发展委员会执行委员",
+            "type": "荣誉",
+            "date": "2024-11-02",
+            "stamp": "中国计算机学会",
+            "stamp_other": "中等职业教育发展委员会",
+            "image_filename": "wqw_1751504311_174.jpg",
+            "honor_level": "国家级",
+            "thumb_filename": "wqw_1751504311_174_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504420_536",
+            "name": "嘉兴市中小学师德楷模",
+            "type": "荣誉",
+            "date": "2024-08-01",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市教育基金会",
+            "image_filename": "wqw_1751504420_536.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751504420_536_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504595_843",
+            "name": "一带一路国家技能发展与技术创新大赛晕计算技术服务（运维方向）赛项裁判",
+            "type": "荣誉",
+            "date": "2023-12-06",
+            "stamp": "金砖国家技能发展技术创新大赛组委会",
+            "stamp_other": "一带一路暨金砖国家技能发展国际联盟",
+            "image_filename": "wqw_1751504595_843.jpg",
+            "honor_level": "国家级",
+            "thumb_filename": "wqw_1751504595_843_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504686_672",
+            "name": "嘉兴市中职学校技能大赛短视频制作项目三等奖（教练）",
+            "type": "学生竞赛",
+            "date": "2025-01-03",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "wqw_1751504686_672.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751504686_672_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504716_954",
+            "name": "嘉兴市中职学校技能大赛大数据应用与服务项目二等奖（教练）",
+            "type": "学生竞赛",
+            "date": "2025-01-03",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "wqw_1751504716_954.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751504716_954_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504783_538",
+            "name": "浙江省技工院校学生短视频比赛优胜奖指导教师",
+            "type": "学生竞赛",
+            "date": "2025-01-01",
+            "stamp": "浙江省人力资源和社会保障厅办公室",
+            "stamp_other": "",
+            "image_filename": "wqw_1751504783_538.jpg",
+            "honor_level": "省级",
+            "thumb_filename": "wqw_1751504783_538_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504830_705",
+            "name": "嘉兴市中职商业创意赛道项目优秀指导教师",
+            "type": "学生竞赛",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "wqw_1751504830_705.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751504830_705_thumb.jpg"
+        },
+        {
+            "id": "honor_1751504867_826",
+            "name": "嘉兴市中职Python编程项目优秀指导教师",
+            "type": "学生竞赛",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "wqw_1751504867_826.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751504867_826_thumb.jpg"
+        },
+        {
+            "id": "honor_1751505590_622",
+            "name": "《基于OBE教育理念的中职实践教育探索与研究——以数字媒体专业为例》省技工院校论文评比二等奖",
+            "type": "论文",
+            "date": "2023-12-01",
+            "stamp": "浙江省职业技能教学研究所",
+            "stamp_other": "",
+            "image_filename": "wqw_1751505590_622.jpg",
+            "honor_level": "省级",
+            "thumb_filename": "wqw_1751505590_622_thumb.jpg"
+        },
+        {
+            "id": "honor_1751506016_124",
+            "name": "《新质生产力视域下人才培养的策略研究——以中职网络与信息安全专业为例》被《工业和信息化教育》学术月刊录用",
+            "type": "论文",
+            "date": "2024-09-01",
+            "stamp": "《工业和信息化教育》编辑部",
+            "stamp_other": "",
+            "image_filename": "wqw_1751506016_124.jpg",
+            "honor_level": "国家级",
+            "thumb_filename": "wqw_1751506016_124_thumb.jpg"
+        },
+        {
+            "id": "honor_1751506917_878",
+            "name": "实境淬炼成长坐标：中职计算机“工作室制”育人的十三年探索-王琦伟",
+            "type": "论文",
+            "date": "2024-11-20",
+            "stamp": "《中国信息化》",
+            "stamp_other": "",
+            "image_filename": "wqw_1751506917_878.jpg",
+            "honor_level": "国家级",
+            "thumb_filename": "wqw_1751506917_878_thumb.jpg",
+            "original_pdf_filename": "wqw_1751506916_553_original.pdf"
+        },
+        {
+            "id": "honor_1751543352_737",
+            "name": "中职计算机专业教学中高阶思维培养的实践——以Python程序设计课程为例-王琦伟（带佐证材料）",
+            "type": "论文",
+            "date": "2023-11-01",
+            "stamp": "《中国培训》",
+            "stamp_other": "",
+            "image_filename": "wqw_1751543352_737.jpg",
+            "honor_level": "国家级",
+            "thumb_filename": "wqw_1751543352_737_thumb.jpg",
+            "original_pdf_filename": "wqw_1751543352_599_original.pdf"
+        },
+        {
+            "id": "honor_1751543471_797",
+            "name": "嘉兴市“嘉禾·活力课堂”观点报告",
+            "type": "讲座",
+            "date": "2024-11-16",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "wqw_1751543471_797.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751543471_797_thumb.jpg",
+            "original_pdf_filename": "wqw_1751543471_314_original.pdf"
+        },
+        {
+            "id": "honor_1751543528_600",
+            "name": "浙江省中小学教师专业发展培训专题讲座",
+            "type": "讲座",
+            "date": "2024-05-24",
+            "stamp": "杭州电子科技大学继续教育学院",
+            "stamp_other": "",
+            "image_filename": "wqw_1751543528_600.jpg",
+            "honor_level": "省级",
+            "thumb_filename": "wqw_1751543528_600_thumb.jpg",
+            "original_pdf_filename": "wqw_1751543528_892_original.pdf"
+        },
+        {
+            "id": "honor_1751543567_542",
+            "name": "嘉兴市中职学校教育教学工作会议职业教育与成果转化典型案例交流",
+            "type": "讲座",
+            "date": "2023-08-10",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "wqw_1751543567_542.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751543567_542_thumb.jpg",
+            "original_pdf_filename": "wqw_1751543567_854_original.pdf"
+        },
+        {
+            "id": "honor_1751543717_304",
+            "name": "嘉兴市师生同赛职业能力比赛（短视频项目）二等奖",
+            "type": "教学比武",
+            "date": "2024-01-08",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "嘉兴市人力资源和社会保障局",
+            "image_filename": "wqw_1751543717_304.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "wqw_1751543717_304_thumb.jpg",
+            "original_pdf_filename": "wqw_1751543717_476_original.pdf"
         }
     ]
 }

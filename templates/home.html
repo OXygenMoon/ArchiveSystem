@@ -259,7 +259,13 @@
         <div class="honor-section-header">
             {# 动态标题，显示当前时间范围 #}
             {% set filter_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
-            {% set filter_text = filter_map.get(selected_date_filter, '全部时间') %}
+            {% set filter_text = filter_map.get(selected_date_filter, '筛选时间') %}
+            {# 【新增】判断是否为自选时间段，并更新标题文本 #}
+            {% if selected_date_filter == 'custom' and request.args.get('start_date') and request.args.get('end_date') %}
+                {% set filter_text = request.args.get('start_date') + ' 至 ' + request.args.get('end_date') %}
+            {% elif selected_date_filter == 'custom' %}
+                {% set filter_text = '自选时间段' %}
+            {% endif %}
             <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">
                 我的荣誉记录 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
             </h2>
@@ -272,33 +278,82 @@
                     <input type="text" id="keyword-search-input" class="input input-bordered input-sm w-full" placeholder="搜索荣誉名称..."/>
                 </div>
 
-                {# 时间筛选 (服务端筛选，会重载页面) #}
-                <div class="honor-filter-container">
-                    <select id="date-filter-select" name="filter_date" class="select select-bordered select-sm w-full max-w-xs" title="按时间范围筛选">
-                        <option value="all" {% if selected_date_filter == 'all' %}selected{% endif %}>全部时间</option>
-                        <option value="last_year" {% if selected_date_filter == 'last_year' %}selected{% endif %}>一年内</option>
-                        <option value="last_3_years" {% if selected_date_filter == 'last_3_years' %}selected{% endif %}>三年内</option>
-                        <option value="last_5_years" {% if selected_date_filter == 'last_5_years' %}selected{% endif %}>五年内</option>
-                    </select>
+                {# 【全新】使用 DaisyUI Dropdown 组件实现紧凑的时间筛选 #}
+                <div class="dropdown dropdown-end">
+                    {# 1. 这是下拉菜单的触发按钮，显示当前筛选状态 #}
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal">
+                        <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg> -->
+                        <span>{{ filter_text }}</span> {# filter_text 变量来自页面顶部的标题逻辑，可复用 #}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
+
+                    {# 2. 这是下拉菜单的内容区域 #}
+                    <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-80 space-y-3">
+                        <h4 class="font-bold px-4">筛选时间</h4>
+                        {# 预设的时间范围 #}
+                        <ul class="menu p-0">
+                            <li><a href="{{ url_for('home', filter_date='all') }}">全部时间</a></li>
+                            <li><a href="{{ url_for('home', filter_date='last_year') }}">一年内</a></li>
+                            <li><a href="{{ url_for('home', filter_date='last_3_years') }}">三年内</a></li>
+                            <li><a href="{{ url_for('home', filter_date='last_5_years') }}">五年内</a></li>
+                        </ul>
+                        <div class="divider my-1">或自选范围</div>
+                        {# 自选日期的表单 #}
+                        <div class="space-y-2 px-2">
+                            <div class="form-control">
+                                <label class="label py-0"><span class="label-text-alt">开始日期</span></label>
+                                <input type="date" id="start-date-input" name="start_date" class="input input-bordered input-sm"
+                                       value="{{ request.args.get('start_date', '') }}" title="开始日期">
+                            </div>
+                            <div class="form-control">
+                                 <label class="label py-0"><span class="label-text-alt">结束日期</span></label>
+                                <input type="date" id="end-date-input" name="end_date" class="input input-bordered input-sm"
+                                       value="{{ request.args.get('end_date', '') }}" title="结束日期" max="{{ now().strftime('%Y-%m-%d') }}">
+                            </div>
+                        </div>
+                        <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
+                    </div>
                 </div>
                 {# 仅当当前列表有数据时，才显示客户端筛选器 #}
-                {# 类型筛选 (客户端筛选) #}
-                <div class="honor-filter-container">
-                    <select id="honor-type-filter" name="honor_type_filter" multiple placeholder="筛选类型..." title="按类型筛选当前列表">
-                        
+                {# 【全新】类型筛选 Dropdown #}
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="type-filter-btn">
+                        <span id="type-filter-label">筛选类型</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
+                    <div tabindex="0" id="type-filter-dropdown" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                        <h4 class="font-bold px-4 mb-2">筛选类型</h4>
+                        <div class="max-h-60 overflow-y-auto">
                         {% for type_option in honor_types %}
-                            <option value="{{ type_option | escape }}">{{ type_option }}</option>
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ type_option }}</span>
+                                    <input type="checkbox" value="{{ type_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-type-cb"/>
+                                </label>
+                            </div>
                         {% endfor %}
-                    </select>
+                        </div>
+                    </div>
                 </div>
-                {# 等级筛选 (客户端筛选) #}
-                <div class="honor-filter-container">
-                    <select id="honor-level-filter" name="honor_level_filter" multiple placeholder="筛选等级..." title="按等级筛选当前列表">
-                        
+                {# 【全新】等级筛选 Dropdown #}
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="level-filter-btn">
+                        <span id="level-filter-label">筛选等级</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
+                    <div tabindex="0" id="level-filter-dropdown" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                         <h4 class="font-bold px-4 mb-2">筛选等级</h4>
+                         <div class="max-h-60 overflow-y-auto">
                         {% for level_option in honor_levels %}
-                            <option value="{{ level_option | escape }}">{{ level_option }}</option>
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ level_option }}</span>
+                                    <input type="checkbox" value="{{ level_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-level-cb"/>
+                                </label>
+                            </div>
                         {% endfor %}
-                    </select>
+                        </div>
+                    </div>
                 </div>
 
                 <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置筛选
@@ -486,180 +541,47 @@
 {# ================ JAVASCRIPT SECTION ================== #}
 {# ====================================================== #}
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-<script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
 <script>
-    // 设置 workerSrc 以确保 pdf.js 能正常工作
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
+    // 设置 pdf.js 的 workerSrc
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js`;
 </script>
 
 <script>
-
-// 鼠标悬停预加载
-    const preloadedImages = new Set();
-
-    function preloadImage(url) {
-        // 如果这个URL的图片还没开始加载
-        if (!preloadedImages.has(url)) {
-            // 创建一个新的Image对象，把它当成一个看不见的<img>标签
-            const img = new Image();
-            // 将它的src指向我们的大图URL，浏览器就会开始下载
-            img.src = url;
-            // 将URL添加到集合中，标记为已开始加载
-            preloadedImages.add(url);
-            // console.log('Preloading image:', url); // (调试用，可以删除)
-        }
-    }
-
-// === 【新增】PDF处理的核心函数 (可复用) ===
-/**
- * 处理文件输入事件，如果是PDF则进行转换
- * @param {Event} event - 文件选择事件
- * @param {HTMLInputElement} fileInputElement - 文件输入元素
- * @param {HTMLElement} statusElement - 用于显示状态的元素
- */
-async function handleFileSelect(event, fileInputElement, statusElement) {
-    statusElement.textContent = ''; // 清空旧状态
-    const file = event.target.files[0];
-
-    if (!file) {
-        return;
-    }
-
-    // 如果文件类型是PDF，则启动转换流程
-    if (file.type === 'application/pdf') {
-        statusElement.textContent = '正在处理PDF文件，请稍候...';
-        statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
-
-        try {
-            // 将PDF转换为JPG文件对象
-            const imageFile = await convertPdfToImage(file);
-            
-            // 使用 DataTransfer API 来创建一个新的 FileList
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(imageFile);
-
-            // 将输入框中的文件替换为新生成的图片文件
-            fileInputElement.files = dataTransfer.files;
-
-            statusElement.textContent = '✅ PDF已成功转换为图片，您可以提交了。';
-            statusElement.className = 'label-text-alt text-xs mt-1 text-success';
-
-        } catch (error) {
-            console.error('PDF conversion failed:', error);
-            statusElement.textContent = `❌ PDF处理失败: ${error.message}. 请尝试上传图片文件。`;
-            statusElement.className = 'label-text-alt text-xs mt-1 text-danger';
-            // 清空文件选择，防止提交损坏的数据
-            fileInputElement.value = ''; 
-        }
-    }
-}
-
-/**
- * 使用 pdf.js 将 PDF 文件的第一页转换为一个图片 File 对象
- * @param {File} pdfFile - 用户选择的PDF文件
- * @returns {Promise<File>} - 返回一个解析为JPG图片文件的Promise
- */
-function convertPdfToImage(pdfFile) {
-    return new Promise((resolve, reject) => {
-        const fileReader = new FileReader();
-
-        fileReader.onload = function() {
-            const typedarray = new Uint8Array(this.result);
-            
-            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-                // 获取第一页
-                return pdf.getPage(1);
-            }).then(page => {
-                const scale = 1.5; // 可以调整缩放比例以控制图片清晰度
-                const viewport = page.getViewport({ scale: scale });
-
-                // 创建一个 Canvas 元素
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                // 将PDF页面渲染到Canvas上
-                const renderContext = {
-                    canvasContext: context,
-                    viewport: viewport
-                };
-
-                page.render(renderContext).promise.then(() => {
-                    // 将Canvas内容转换为Blob对象 (JPG格式)
-                    canvas.toBlob(blob => {
-                        // 从Blob创建一个新的File对象
-                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
-                        const imageFile = new File([blob], newFileName, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now()
-                        });
-                        resolve(imageFile);
-                    }, 'image/jpeg', 0.9); // 0.9 是图片质量
-                });
-            }).catch(error => {
-                reject(error);
-            });
-        };
-
-        fileReader.onerror = (error) => reject(error);
-        fileReader.readAsArrayBuffer(pdfFile);
-    });
-}
-
-
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded and parsed. Initializing scripts.");
-    // 【修改后的最终代码】
-    const tomSelectSettings = {
-        plugins: {
-            'checkbox_options': {}
-        },
-        create: false,
-        maxItems: null,
-        closeAfterSelect: false,
-        render: {
-            /**
-            * 【终极解决方案】
-            * 1. 我们返回一个真实的 <div> 元素，来满足 checkbox_options 插件的内部依赖。
-            * 2. 我们给这个 <div> 加上 style="display: none;" 的内联样式。
-            * 3. 这使得该元素虽然存在于DOM中，但浏览器在渲染时会完全忽略它，
-            * 它既不可见，也不占据任何宽度、高度或边距。
-            * 这样就同时满足了“插件能正常工作”和“UI上看不出任何东西”两个条件。
-            */
-            item: function(data, escape) {
-                return '<div style="display: none;"></div>';
-            }
-        },
-        onInitialize: function() {
-            // 解决 daisyUI 主题切换后样式丢失问题
-            this.wrapper.style.color = 'hsl(var(--bc))';
-        }
-    };
-    const typeSelect = document.getElementById('honor-type-filter');
-    const levelSelect = document.getElementById('honor-level-filter');
-    let tomTypeInstance, tomLevelInstance;
-    if (typeSelect) {
-        tomTypeInstance = new TomSelect(typeSelect, tomSelectSettings);
-        tomTypeInstance.originalPlaceholder = typeSelect.getAttribute('placeholder');
-    }
-    if (levelSelect) {
-        tomLevelInstance = new TomSelect(levelSelect, tomSelectSettings);
-        tomLevelInstance.originalPlaceholder = levelSelect.getAttribute('placeholder');
-    }
-    if (tomTypeInstance) {
-        updateTomSelectPlaceholder(tomTypeInstance, tomTypeInstance.getValue());
-    }
-    if (tomLevelInstance) {
-        updateTomSelectPlaceholder(tomLevelInstance, tomLevelInstance.getValue());
-    }
 
+    //==========================================================
+    // 1. 全局 DOM 元素引用
+    //==========================================================
 
-    // ==========================================================
-    // --- 全局 DOM 元素引用 (移到最前面以避免初始化错误) ---
-    // ==========================================================
-    // 个性签名
+    // --- 筛选相关 ---
+    const honorsGrid = document.getElementById('honors-grid');
+    const noHonorsMessage = document.getElementById('no-honors-message');
+    const keywordSearchInput = document.getElementById('keyword-search-input');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+
+    // 时间筛选 (Dropdown)
+    const startDateInput = document.getElementById('start-date-input');
+    const endDateInput = document.getElementById('end-date-input');
+    const applyCustomDateBtn = document.getElementById('apply-custom-date-btn');
+
+    // 类型筛选 (Dropdown)
+    const typeFilterBtnLabel = document.getElementById('type-filter-label');
+    const typeCheckboxes = document.querySelectorAll('.honor-type-cb');
+
+    // 等级筛选 (Dropdown)
+    const levelFilterBtnLabel = document.getElementById('level-filter-label');
+    const levelCheckboxes = document.querySelectorAll('.honor-level-cb');
+
+    // --- 统计相关 ---
+    const statsByTypeDiv = document.getElementById('stats-by-type');
+    const statsByLevelDiv = document.getElementById('stats-by-level');
+    const statsToggleTypeBtn = document.getElementById('stats-toggle-type');
+    const statsToggleLevelBtn = document.getElementById('stats-toggle-level');
+    const statsTotalCountType = document.getElementById('stats-total-count-type');
+    const statsTotalCountLevel = document.getElementById('stats-total-count-level');
+
+    // --- 个性签名相关 ---
     const mottoDisplayArea = document.getElementById('motto-display-area');
     const mottoTextSpan = document.getElementById('motto-text');
     const mottoEditArea = document.getElementById('motto-edit-area');
@@ -669,21 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mottoErrorDiv = document.getElementById('motto-error');
     const saveMottoLoading = saveMottoBtn ? saveMottoBtn.querySelector('.loading') : null;
 
-    // 荣誉统计
-    const statsByTypeDiv = document.getElementById('stats-by-type');
-    const statsByLevelDiv = document.getElementById('stats-by-level');
-    const statsToggleTypeBtn = document.getElementById('stats-toggle-type');
-    const statsToggleLevelBtn = document.getElementById('stats-toggle-level');
-    const statsTotalCountType = document.getElementById('stats-total-count-type');
-    const statsTotalCountLevel = document.getElementById('stats-total-count-level');
-
-    // 荣誉列表筛选
-    const dateFilterSelect = document.getElementById('date-filter-select');
-    const keywordSearchInput = document.getElementById('keyword-search-input'); // 【新增】
-    const honorsGrid = document.getElementById('honors-grid');
-    const noHonorsMessage = document.getElementById('no-honors-message');
-
-    // 编辑荣誉 Modal
+    // --- 编辑荣誉 Modal 相关 ---
     const editModal = document.getElementById('edit_honor_modal');
     const editForm = document.getElementById('edit_honor_form');
     const editModalError = document.getElementById('edit_modal_error');
@@ -697,50 +605,187 @@ document.addEventListener('DOMContentLoaded', () => {
     const editHonorStampOtherInput = document.getElementById('edit_honor_stamp_other');
     const editHonorImageInput = document.getElementById('edit_honor_image_file');
     const editModalImage = document.getElementById('edit_modal_image');
-    // 【新增】获取编辑模态框中的状态显示元素
     const editUploadStatus = document.getElementById('edit-upload-status');
 
-
-    // 图片放大 Modal 和 Toast
-    const imageModal = document.getElementById('image_modal');
-    const modalImage = document.getElementById('modal_image');
-    const modalTitle = document.getElementById('modal_title');
+    // --- 其他 UI 元素 ---
     const successToast = document.getElementById('toast-success');
     const successToastMessage = document.getElementById('toast-success-message');
 
-    // ==========================================================
-    // --- 函数定义部分 ---
-    // ==========================================================
+    //==========================================================
+    // 2. 函数定义
+    //==========================================================
+
+    // --- 筛选核心逻辑 ---
 
     /**
-    * 根据 Tom Select 的选中项，动态更新其占位符文本和样式
-    * @param {object} tomSelectInstance - Tom Select 的实例对象 (e.g., tomTypeInstance)
-    * @param {Array} selectedValues - 当前选中的值的数组
-    */
-    function updateTomSelectPlaceholder(tomSelectInstance, selectedValues) {
-        // 确保实例和其核心组件存在
-        if (!tomSelectInstance || !tomSelectInstance.control_input || !tomSelectInstance.wrapper) {
-            return;
-        }
+     * 主函数：应用所有客户端筛选（关键词、类型、等级）并更新页面
+     */
+    function applyAllClientFilters() {
+        if (!honorsGrid) return;
 
-        const input = tomSelectInstance.control_input; // 获取内部的 <input> 元素
-        const wrapper = tomSelectInstance.wrapper;     // 获取最外层的 .ts-wrapper 容器
-        const count = selectedValues.length;           // 获取选中项的数量
+        const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
+        const selectedTypes = Array.from(typeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedLevels = Array.from(levelCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
 
+        const honorCards = honorsGrid.querySelectorAll('.card');
+        let visibleCount = 0;
+        const visibleTypeCounts = {};
+        const visibleLevelCounts = {};
+
+        honorCards.forEach(card => {
+            const honorName = card.dataset.name.toLowerCase();
+            const cardType = card.dataset.type;
+            const cardLevel = card.dataset.level;
+
+            const nameMatch = !keyword || honorName.includes(keyword);
+            const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(cardType);
+            const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(cardLevel);
+
+            if (nameMatch && typeMatch && levelMatch) {
+                card.style.display = '';
+                visibleCount++;
+                if(cardType) visibleTypeCounts[cardType] = (visibleTypeCounts[cardType] || 0) + 1;
+                if(cardLevel) visibleLevelCounts[cardLevel] = (visibleLevelCounts[cardLevel] || 0) + 1;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        updateDynamicStats(visibleTypeCounts, visibleLevelCounts, visibleCount);
+        updateNoHonorsMessage(visibleCount);
+        updateFilterButtonLabel(typeFilterBtnLabel, '类型', selectedTypes.length);
+        updateFilterButtonLabel(levelFilterBtnLabel, '等级', selectedLevels.length);
+
+        localStorage.setItem('honorFilterKeyword', keyword);
+        localStorage.setItem('honorFilterType', JSON.stringify(selectedTypes));
+        localStorage.setItem('honorFilterLevel', JSON.stringify(selectedLevels));
+    }
+
+    /**
+     * 更新筛选按钮的文本，例如 "筛选类型 (2)"
+     */
+    function updateFilterButtonLabel(labelElement, prefix, count) {
+        if (!labelElement) return;
+        const button = labelElement.parentElement;
         if (count > 0) {
-            // 如果有选中项
-            // 从实例上获取原始 placeholder 的后半部分 (例如 "类型" 或 "等级")
-            const placeholderSuffix = tomSelectInstance.originalPlaceholder.replace('筛选', '').replace('...', '');
-            input.placeholder = `已筛选 ${count} 个${placeholderSuffix}`; // 设置新的 placeholder
-            wrapper.classList.add('is-filtered'); // 添加一个特殊类，用于CSS样式控制
+            labelElement.textContent = `筛选${prefix} (${count})`;
+            button.classList.add('btn-active', 'btn-primary');
         } else {
-            // 如果没有选中项 (即清空了筛选)
-            input.placeholder = tomSelectInstance.originalPlaceholder; // 恢复原始 placeholder
-            wrapper.classList.remove('is-filtered'); // 移除特殊类
+            labelElement.textContent = `筛选${prefix}`;
+            button.classList.remove('btn-active', 'btn-primary');
+        }
+    }
+    
+    /**
+     * 根据可见卡片数量，切换“无结果”提示的显示状态
+     */
+    function updateNoHonorsMessage(visibleCount) {
+        if (!noHonorsMessage) return;
+        const isFiltering = (keywordSearchInput && keywordSearchInput.value) ||
+                            Array.from(typeCheckboxes).some(cb => cb.checked) ||
+                            Array.from(levelCheckboxes).some(cb => cb.checked);
+        noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
+    }
+    
+    /**
+     * 重置所有客户端筛选器（由“无结果”提示中的按钮调用）
+     */
+    window.resetClientFilters = () => {
+        if (keywordSearchInput) keywordSearchInput.value = "";
+        typeCheckboxes.forEach(cb => cb.checked = false);
+        levelCheckboxes.forEach(cb => cb.checked = false);
+        applyAllClientFilters();
+    };
+
+    /**
+     * 从 localStorage 加载并应用之前保存的筛选状态
+     */
+    function applySavedFilters() {
+        const savedKeyword = localStorage.getItem('honorFilterKeyword');
+        if (keywordSearchInput && savedKeyword) {
+            keywordSearchInput.value = savedKeyword;
+        }
+        
+        try {
+            const savedTypes = JSON.parse(localStorage.getItem('honorFilterType') || '[]');
+            if (savedTypes.length > 0) {
+                typeCheckboxes.forEach(cb => {
+                    if (savedTypes.includes(cb.value)) cb.checked = true;
+                });
+            }
+        } catch (e) { localStorage.removeItem('honorFilterType'); }
+
+        try {
+            const savedLevels = JSON.parse(localStorage.getItem('honorFilterLevel') || '[]');
+            if (savedLevels.length > 0) {
+                levelCheckboxes.forEach(cb => {
+                    if (savedLevels.includes(cb.value)) cb.checked = true;
+                });
+            }
+        } catch(e) { localStorage.removeItem('honorFilterLevel'); }
+    }
+
+
+    // --- 统计面板相关函数 ---
+
+    /**
+     * 更新统计面板的数字
+     */
+    function updateDynamicStats(typeCounts, levelCounts, totalCount) {
+        if (statsTotalCountType) statsTotalCountType.textContent = totalCount;
+        if (statsTotalCountLevel) statsTotalCountLevel.textContent = totalCount;
+
+        document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(card => {
+            const typeName = card.dataset.statType;
+            const countEl = card.querySelector('.stat-count');
+            const count = typeCounts[typeName] || 0;
+            if (countEl) {
+                countEl.textContent = count;
+                countEl.classList.toggle('text-accent', count > 0);
+                countEl.classList.toggle('text-base-content/30', count === 0);
+            }
+        });
+
+        document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(card => {
+            const levelName = card.dataset.statLevel;
+            const countEl = card.querySelector('.stat-count');
+            const count = levelCounts[levelName] || 0;
+            if (countEl) {
+                countEl.textContent = count;
+                countEl.classList.toggle('text-accent', count > 0);
+                countEl.classList.toggle('text-base-content/30', count === 0);
+            }
+        });
+    }
+
+    /**
+     * 切换统计视图（按类型/按等级）
+     */
+    window.switchStatsView = (viewType) => {
+        localStorage.setItem('statsView', viewType);
+        if (!statsByTypeDiv || !statsByLevelDiv || !statsToggleTypeBtn || !statsToggleLevelBtn) return;
+        const isTypeView = viewType === 'type';
+        statsByTypeDiv.classList.toggle('hidden', !isTypeView);
+        statsByLevelDiv.classList.toggle('hidden', isTypeView);
+        statsToggleTypeBtn.classList.toggle('btn-active', isTypeView);
+        statsToggleLevelBtn.classList.toggle('btn-active', !isTypeView);
+    };
+
+    /**
+     * 应用本地存储的统计视图偏好
+     */
+    function applySavedStatsView() {
+        const savedView = localStorage.getItem('statsView');
+        if (savedView === 'level') {
+            switchStatsView('level');
+        } else {
+            switchStatsView('type');
         }
     }
 
-    // --- 1. 个性签名 (Motto) 功能 ---
+
+    // --- 个性签名相关函数 ---
+    
     const enterEditMottoMode = () => {
         if (!mottoDisplayArea || !mottoEditArea || !mottoInput) return;
         mottoDisplayArea.classList.add('hidden');
@@ -792,159 +837,81 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 2. 荣誉统计与列表筛选 ---
-    window.switchStatsView = (viewType) => {
-        localStorage.setItem('statsView', viewType);
-        if (!statsByTypeDiv || !statsByLevelDiv || !statsToggleTypeBtn || !statsToggleLevelBtn) return;
-        const isTypeView = viewType === 'type';
-        statsByTypeDiv.classList.toggle('hidden', !isTypeView);
-        statsByLevelDiv.classList.toggle('hidden', isTypeView);
-        statsToggleTypeBtn.classList.toggle('btn-active', isTypeView);
-        statsToggleLevelBtn.classList.toggle('btn-active', !isTypeView);
-    };
 
-    function applySavedStatsView() {
-        const savedView = localStorage.getItem('statsView');
-        if (savedView === 'level') {
-            switchStatsView('level');
-        } else {
-            switchStatsView('type');
+    // --- 文件处理与 Modal 相关函数 ---
+    
+    const preloadedImages = new Set();
+    window.preloadImage = (url) => {
+        if (!preloadedImages.has(url)) {
+            const img = new Image();
+            img.src = url;
+            preloadedImages.add(url);
         }
     }
 
-    const applySavedFilters = () => {
-        const savedKeyword = localStorage.getItem('honorFilterKeyword');
-        if (keywordSearchInput && savedKeyword) {
-            keywordSearchInput.value = savedKeyword;
-        }
-        // 恢复 Tom Select 的值
-        try {
-            const savedType = JSON.parse(localStorage.getItem('honorFilterType'));
-            if (tomTypeInstance && savedType) {
-                tomTypeInstance.setValue(savedType);
-                // 【在这里新增下面这行代码】
-                updateTomSelectPlaceholder(tomTypeInstance, savedType); 
+    async function handleFileSelect(event, fileInputElement, statusElement) {
+        statusElement.textContent = '';
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.type === 'application/pdf') {
+            statusElement.textContent = '正在处理PDF文件，请稍候...';
+            statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
+            try {
+                const imageFile = await convertPdfToImage(file);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(imageFile);
+                fileInputElement.files = dataTransfer.files;
+                statusElement.textContent = '✅ PDF已成功转换为图片，可直接提交。';
+                statusElement.className = 'label-text-alt text-xs mt-1 text-success';
+            } catch (error) {
+                console.error('PDF conversion failed:', error);
+                statusElement.textContent = `❌ PDF处理失败: ${error.message}.`;
+                statusElement.className = 'label-text-alt text-xs mt-1 text-error';
+                fileInputElement.value = ''; 
             }
-            const savedLevel = JSON.parse(localStorage.getItem('honorFilterLevel'));
-            if (tomLevelInstance && savedLevel) {
-                tomLevelInstance.setValue(savedLevel);
-                // 【在这里也新增下面这行代码】
-                updateTomSelectPlaceholder(tomLevelInstance, savedLevel);
-            }
-        } catch(e) {
-            console.warn("Could not parse saved filters from localStorage", e);
-            localStorage.removeItem('honorFilterType');
-            localStorage.removeItem('honorFilterLevel');
         }
-    };
-
-    const updateDynamicStats = (typeCounts, levelCounts, totalCount) => {
-        if (statsTotalCountType) statsTotalCountType.textContent = totalCount;
-        if (statsTotalCountLevel) statsTotalCountLevel.textContent = totalCount;
-
-        if (statsByTypeDiv) {
-            document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(statCard => {
-                const typeName = statCard.dataset.statType;
-                const countEl = statCard.querySelector('.stat-count');
-                const count = typeCounts[typeName] || 0;
-                if (countEl) {
-                    countEl.textContent = count;
-                    countEl.classList.toggle('text-accent', count > 0);
-                    countEl.classList.toggle('text-base-content/30', count === 0);
-                }
-            });
-        }
-
-        if (statsByLevelDiv) {
-            document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(statCard => {
-                const levelName = statCard.dataset.statLevel;
-                const countEl = statCard.querySelector('.stat-count');
-                const count = levelCounts[levelName] || 0;
-                 if (countEl) {
-                    countEl.textContent = count;
-                    countEl.classList.toggle('text-accent', count > 0);
-                    countEl.classList.toggle('text-base-content/30', count === 0);
-                }
-            });
-        }
-    };
-
-
-    /**
-     * 【修改】核心函数：应用客户端筛选，并触发统计更新
-     */
-    const applyClientFilters = () => {
-    if (!honorsGrid) return;
-
-    const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
-    // 从 Tom Select 获取选中的值，它们会是数组
-    const selectedTypes = tomTypeInstance ? tomTypeInstance.getValue() : [];
-    const selectedLevels = tomLevelInstance ? tomLevelInstance.getValue() : [];
-
-    const honorCards = honorsGrid.querySelectorAll('.card');
-
-    let visibleCount = 0;
-    const typeCounts = {};
-    const levelCounts = {};
-
-    // 遍历卡片，进行筛选和计数
-    honorCards.forEach(card => {
-        const honorName = card.dataset.name.toLowerCase();
-        const cardType = card.dataset.type;
-        const cardLevel = card.dataset.level;
-
-        const nameMatch = !keyword || honorName.includes(keyword);
-        // 如果没有选择任何类型，则视为匹配；否则检查卡片类型是否在选中数组中
-        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(cardType);
-        // 如果没有选择任何等级，则视为匹配；否则检查卡片等级是否在选中数组中
-        const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(cardLevel);
-
-        if (nameMatch && typeMatch && levelMatch) {
-            card.style.display = '';
-            visibleCount++;
-            if(cardType) typeCounts[cardType] = (typeCounts[cardType] || 0) + 1;
-            if(cardLevel) levelCounts[cardLevel] = (levelCounts[cardLevel] || 0) + 1;
-        } else {
-            card.style.display = 'none';
-        }
-    });
-
-    // 更新“无结果”提示信息
-    if (noHonorsMessage) {
-        const isFiltering = keyword || selectedTypes.length > 0 || selectedLevels.length > 0;
-        noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
     }
 
-    // 调用函数更新统计面板
-    updateDynamicStats(typeCounts, levelCounts, visibleCount);
-};
+    function convertPdfToImage(pdfFile) {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                pdfjsLib.getDocument(typedarray).promise.then(pdf => pdf.getPage(1))
+                .then(page => {
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale: scale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    const renderContext = { canvasContext: context, viewport: viewport };
+                    return page.render(renderContext).promise.then(() => canvas);
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
+                        const imageFile = new File([blob], newFileName, { type: 'image/jpeg', lastModified: Date.now() });
+                        resolve(imageFile);
+                    }, 'image/jpeg', 0.9);
+                }).catch(error => reject(error));
+            };
+            fileReader.onerror = (error) => reject(error);
+            fileReader.readAsArrayBuffer(pdfFile);
+        });
+    }
 
-    // 【修改】此函数只重置客户端筛选器
-    window.resetClientFilters = () => {
-        if (keywordSearchInput) keywordSearchInput.value = "";
-        // 使用 Tom Select API 清空
-        if (tomTypeInstance) tomTypeInstance.clear();
-        if (tomLevelInstance) tomLevelInstance.clear();
-
-        localStorage.removeItem('honorFilterKeyword');
-        localStorage.removeItem('honorFilterType');
-        localStorage.removeItem('honorFilterLevel');
-        applyClientFilters(); // 重置后也要重新计算和应用
-    };
-
-    // --- 3. 编辑荣誉 Modal 功能 ---
     window.openEditModal = (button) => {
         if (!editModal || !editForm) return alert("编辑窗口加载失败！");
         editForm.reset();
         
-        // 【新增】重置PDF处理状态
         if (editUploadStatus) {
             editUploadStatus.textContent = '';
             editUploadStatus.className = 'label-text-alt text-xs mt-1 min-h-[1rem]';
         }
-
         if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
         if (editModalLoading) editModalLoading.classList.add('hidden');
+        
         const data = button.dataset;
         if(editHonorIdInput) editHonorIdInput.value = data.id;
         if(editHonorNameInput) editHonorNameInput.value = data.name;
@@ -964,16 +931,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editModal) editModal.close();
     };
 
-    // --- 4. 全局功能函数 (Toast, 图片放大) ---
-    const showSuccessToast = (message) => {
-        if (!successToast || !successToastMessage) return;
-        successToastMessage.textContent = message;
-        successToast.classList.remove('hidden');
-        setTimeout(() => successToast.classList.add('hidden'), 3000);
-    };
-
     window.showImageModal = (imageUrl, imageTitle) => {
-        // Fallback for missing elements, just open the image in a new tab
+        const imageModal = document.getElementById('image_modal');
         if (typeof image_modal === 'undefined' || !image_modal) {
              window.open(imageUrl, '_blank');
              return;
@@ -984,43 +943,58 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modalTitleEl) modalTitleEl.textContent = imageTitle || '图片详情';
         image_modal.showModal();
     };
+    
+    const showSuccessToast = (message) => {
+        if (!successToast || !successToastMessage) return;
+        successToastMessage.textContent = message;
+        successToast.classList.remove('hidden');
+        setTimeout(() => successToast.classList.add('hidden'), 3000);
+    };
 
 
-    // ==========================================================
-    // --- 页面加载后的初始化调用和事件绑定 ---
-    // ==========================================================
+    //==========================================================
+    // 3. 事件绑定与初始化调用
+    //==========================================================
 
-    // 1. 应用保存的视图和筛选器状态
-    applySavedStatsView();
-    applySavedFilters();
-
-    // 2. 根据当前(可能已恢复的)筛选器值，执行一次客户端筛选和动态统计（关键！）
-    applyClientFilters();
-
-    if (tomTypeInstance) {
-        console.log('--- 脚本初始化：正在绑定“类型筛选”事件 ---');
-        
-        tomTypeInstance.on('change', (value) => {
-            console.log(`[CHANGE event - 类型] 触发，选中的值:`, value);
-            localStorage.setItem('honorFilterType', JSON.stringify(value));
-            applyClientFilters();
-            updateTomSelectPlaceholder(tomTypeInstance, value);
+    // --- 筛选事件绑定 ---
+    typeCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    levelCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    if (keywordSearchInput) {
+        keywordSearchInput.addEventListener('input', applyAllClientFilters);
+    }
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', () => {
+            localStorage.removeItem('honorFilterKeyword');
+            localStorage.removeItem('honorFilterType');
+            localStorage.removeItem('honorFilterLevel');
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('filter_date', 'all');
+            currentUrl.searchParams.delete('start_date');
+            currentUrl.searchParams.delete('end_date');
+            window.location.href = currentUrl.toString();
+        });
+    }
+    if (applyCustomDateBtn) {
+        applyCustomDateBtn.addEventListener('click', () => {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            if (!startDate || !endDate) {
+                alert('请同时选择开始日期和结束日期。');
+                return;
+            }
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('开始日期不能晚于结束日期。');
+                return;
+            }
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('filter_date', 'custom');
+            currentUrl.searchParams.set('start_date', startDate);
+            currentUrl.searchParams.set('end_date', endDate);
+            window.location.href = currentUrl.toString();
         });
     }
 
-    if (tomLevelInstance) {
-        console.log('--- 脚本初始化：正在绑定“等级筛选”事件 ---');
-
-        tomLevelInstance.on('change', (value) => {
-            console.log(`[CHANGE event - 等级] 触发，选中的值:`, value);
-            localStorage.setItem('honorFilterLevel', JSON.stringify(value));
-            applyClientFilters();
-            updateTomSelectPlaceholder(tomLevelInstance, value);
-        });
-    }
-
-    // --- 事件绑定 ---
-    // 个性签名事件
+    // --- 个性签名事件绑定 ---
     if (mottoDisplayArea) mottoDisplayArea.addEventListener('click', enterEditMottoMode);
     if (cancelMottoBtn) cancelMottoBtn.addEventListener('click', exitEditMottoMode);
     if (saveMottoBtn) saveMottoBtn.addEventListener('click', saveMotto);
@@ -1031,47 +1005,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 筛选事件
-    if (dateFilterSelect) {
-        dateFilterSelect.addEventListener('change', (e) => {
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('filter_date', e.target.value);
-            window.location.href = currentUrl.toString();
-        });
-    }
-
-    // 【新增】关键词搜索事件
-    if (keywordSearchInput) {
-        keywordSearchInput.addEventListener('input', () => {
-             localStorage.setItem('honorFilterKeyword', keywordSearchInput.value);
-             applyClientFilters();
-        });
-    }
-
-
-    const resetFiltersBtn = document.getElementById('reset-filters-btn');
-    if (resetFiltersBtn) {
-        // 【修改】重置按钮行为：现在重置所有筛选（包括客户端和服务器端）
-        resetFiltersBtn.addEventListener('click', () => {
-            localStorage.removeItem('honorFilterKeyword');
-            localStorage.removeItem('honorFilterType');
-            localStorage.removeItem('honorFilterLevel');
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('filter_date', 'all');
-            // 跳转到完全重置的URL
-            window.location.href = currentUrl.toString();
-        });
-    }
-
-    // 【新增】为编辑模态框的文件输入框绑定PDF处理事件
+    // --- 编辑 Modal 事件绑定 ---
     if (editHonorImageInput && editUploadStatus) {
         editHonorImageInput.addEventListener('change', (event) => {
             handleFileSelect(event, editHonorImageInput, editUploadStatus);
         });
     }
-
-
-    // 编辑表单提交事件
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1079,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!honorId) return;
             if (editModalLoading) editModalLoading.classList.remove('hidden');
             if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
+            
             const formData = new FormData(editForm);
             try {
                 const response = await fetch(`/edit_honor/${honorId}`, {
@@ -1092,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showSuccessToast(result.message || '更新成功！页面即将刷新...');
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    const errorMsg = result.error || `更新失败 (${response.status})。请检查输入内容。`;
+                    const errorMsg = result.error || `更新失败 (${response.status})。`;
                     if(editModalError) {
                         editModalError.textContent = errorMsg;
                         editModalError.classList.remove('hidden');
@@ -1109,6 +1049,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- 页面加载时初始化 ---
+    applySavedStatsView();
+    applySavedFilters();
+    applyAllClientFilters(); // 初始加载时应用一次，确保标签和统计正确
 });
 </script>
 {% endblock %}

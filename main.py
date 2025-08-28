@@ -1,11 +1,12 @@
+import os
 import io
 import zipfile
 from PIL import Image,ImageOps
 import fitz # 用于处理PDF
 import re
-import os
 import json
 import redis
+
 
 import shutil # 删除目录树
 from flask import (
@@ -24,6 +25,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # --- 配置 ---
+
+
+
 SECRET_KEY = 'e3ffd14577c6444fb5d7997c27b74ef0'
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
@@ -240,26 +244,49 @@ def home():
     response_data['honor_level_counts'] = honor_level_counts_unfiltered
 
 
-    # --- 修改筛选逻辑 ---
     selected_date_filter = request.args.get('filter_date', 'all')
     response_data['selected_date_filter'] = selected_date_filter
     today = datetime.date.today()
-    cutoff_date = None
+
+    # 1. 按日期筛选
+    filtered_honors = []
     if selected_date_filter == 'last_year':
         cutoff_date = today - relativedelta(years=1)
+        for honor in user_honors_raw:
+            honor_date = parse_date_safe(honor.get('date'))
+            # 只筛选起始日期之后的记录
+            if honor_date and honor_date >= cutoff_date:
+                filtered_honors.append(honor)
     elif selected_date_filter == 'last_3_years':
         cutoff_date = today - relativedelta(years=3)
-    elif selected_date_filter == 'last_5_years':
-        cutoff_date = today - relativedelta(years=5)
-
-    # 1. 先按日期筛选
-    filtered_honors = []
-    if cutoff_date:
         for honor in user_honors_raw:
             honor_date = parse_date_safe(honor.get('date'))
             if honor_date and honor_date >= cutoff_date:
                 filtered_honors.append(honor)
-    else:
+    elif selected_date_filter == 'last_5_years':
+        cutoff_date = today - relativedelta(years=5)
+        for honor in user_honors_raw:
+            honor_date = parse_date_safe(honor.get('date'))
+            if honor_date and honor_date >= cutoff_date:
+                filtered_honors.append(honor)
+    # 【新增】处理自选时间段的逻辑
+    elif selected_date_filter == 'custom':
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        start_date_limit = parse_date_safe(start_date_str)
+        end_date_limit = parse_date_safe(end_date_str)
+        
+        # 只有当开始和结束日期都有效时才进行筛选
+        if start_date_limit and end_date_limit:
+            for honor in user_honors_raw:
+                honor_date = parse_date_safe(honor.get('date'))
+                # 筛选在时间范围内的记录
+                if honor_date and start_date_limit <= honor_date <= end_date_limit:
+                    filtered_honors.append(honor)
+        else:
+            # 如果日期无效或缺失，则不进行筛选，显示所有
+            filtered_honors = user_honors_raw
+    else: # 对应 filter_date == 'all'
         filtered_honors = user_honors_raw
         
     # 2. 接着按类型筛选 (如果用户选择了类型)
@@ -280,6 +307,7 @@ def home():
     response_data['honors'] = user_honors_sorted_filtered
 
     return render_template('home.html', **response_data)
+
 
 
 @app.route('/uploads/<username>/<path:filename>')
@@ -557,21 +585,64 @@ def register():
 
 
 # --- 路由 ---
-# 请确保删除了文件顶部的 import fitz
+@app.route('/api/users_by_major')
+@login_required
+def get_users_by_major():
+    """
+    一个API端点，根据专业名称返回该专业下的所有用户列表。
+    """
+    major = request.args.get('major')
+    if not major:
+        return jsonify([]) # 如果没有提供专业，返回空列表
+
+    users_data = load_user_data()
+    users_in_major = [
+        {"username": uname, "truename": udata.get('truename', uname)}
+        for uname, udata in users_data.items()
+        if udata.get('major') == major
+    ]
+    
+    # 按真实姓名排序
+    users_in_major.sort(key=lambda x: x['truename'])
+    
+    return jsonify(users_in_major)
+
 
 @app.route('/add_honor', methods=['GET', 'POST'])
 @login_required
 def add_honor():
-    username = session.get('username')
+    # 从 session 获取当前用户信息
+    current_username = session.get('username')
+    current_user_role = session.get('role')
+    
+    # 加载所有需要的数据
+    users_data = load_user_data()
     honor_types = HONOR_TYPE
     honor_levels = LEVEL_TYPE
-    current_upload_folder = os.path.join(UPLOAD_FOLDER, username)
 
-    if not os.path.exists(current_upload_folder):
-        os.makedirs(current_upload_folder)
-
+    # --- 处理 POST 请求 (当用户点击“确认添加”提交表单时) ---
     if request.method == 'POST':
-        # 1. 获取表单数据
+        # 步骤 1: 根据权限决定荣誉的最终归属者 (owner_username)
+        owner_username = None
+        if current_user_role == 'admin':
+            owner_username = request.form.get('teacher_username')
+            if not owner_username:
+                flash("管理员请务必选择一个教师！", "error")
+                return redirect(url_for('add_honor'))
+        elif current_user_role == 'major_admin':
+            owner_username = request.form.get('teacher_username')
+            if not owner_username:
+                flash("专业负责人请务必选择一个教师！", "error")
+                return redirect(url_for('add_honor'))
+        else: # 对于 'user' 角色，荣誉归属于自己
+            owner_username = current_username
+            
+        # 步骤 2: 准备荣誉归属者的上传文件夹
+        owner_upload_folder = os.path.join(UPLOAD_FOLDER, owner_username)
+        if not os.path.exists(owner_upload_folder):
+            os.makedirs(owner_upload_folder)
+
+        # 步骤 3: 获取表单数据并进行校验 (与您原代码基本一致)
         honor_name = request.form.get('honor_name')
         honor_type = request.form.get('honor_type')
         honor_date = request.form.get('honor_date')
@@ -580,101 +651,114 @@ def add_honor():
         honor_image = request.files.get('honor_image')
         honor_level = request.form.get('honor_level')
 
-        # 2. 校验
         if not all([honor_name, honor_type, honor_level, honor_date, honor_stamp]):
             flash("请填写所有必填项。", "error")
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+            return redirect(url_for('add_honor')) # 简化处理，实际可传递表单数据回填
 
         if not honor_image or honor_image.filename == '':
             flash("请上传荣誉证明文件。", "error")
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+            return redirect(url_for('add_honor'))
 
         if not allowed_file(honor_image.filename):
-            flash("无效的文件格式，请上传图片文件（PNG, JPG, JPEG, GIF）或PDF文件。", "error")
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+            flash("无效的文件格式，请上传图片文件或PDF文件。", "error")
+            return redirect(url_for('add_honor'))
 
-        # 3. 【核心修改】文件处理逻辑 (借鉴自 edit_honor)
-        temp_path = None # 确保 temp_path 在 try 外定义
+        # 步骤 4: 文件处理 - 将上传的文件（图片或PDF）统一转换为JPG格式并生成缩略图
+        temp_path = None
+        output_image_filename = None
+        thumb_filename = None
+        original_pdf_filename = None
         try:
-            # --- 步骤 3.1: 保存上传文件到临时位置 ---
-            if honor_image.filename[-3:] != 'pdf':
-                original_filename = secure_filename(honor_image.filename)
-                _, ext = os.path.splitext(original_filename)
-            else:
-                original_filename = honor_image.filename
-                ext = '.pdf'
-            
+            # 4.1: 保存上传文件到临时位置
+            original_filename = secure_filename(honor_image.filename)
+            _, ext = os.path.splitext(original_filename)
             temp_basename = f"temp_{int(time.time())}_{random.randint(1000, 9999)}"
             temp_filename = temp_basename + ext
-            temp_path = os.path.join(current_upload_folder, temp_filename)
+            temp_path = os.path.join(owner_upload_folder, temp_filename)
             honor_image.save(temp_path)
             logger.info(f"上传的文件已临时保存到: {temp_path}")
 
-            # --- 步骤 3.2: 根据文件类型，创建Pillow图像对象 ---
+            
+            timestamp = int(time.time())
+            rand_int = random.randint(100, 999)
+            base_filename = f"{owner_username}_{timestamp}_{rand_int}"
+            output_image_filename = f"{base_filename}.jpg"
+            thumb_filename = f"{base_filename}_thumb.jpg"
+            
+            # 4.2: 根据文件类型，创建Pillow图像对象
             pil_image = None
             if ext.lower() == '.pdf':
-                logger.info("检测到PDF文件，开始使用fitz进行转换...")
-                import fitz # 局部导入，仅在需要时使用
+                # <<< 新增/修改开始 >>>
+                # 如果是PDF，我们要把原始文件完整地保存下来
+                original_pdf_filename = f"{base_filename}_original.pdf"
+                permanent_pdf_path = os.path.join(owner_upload_folder, original_pdf_filename)
+                # 使用 shutil.copy2 来复制文件和元数据
+                shutil.copy2(temp_path, permanent_pdf_path)
+                logger.info(f"原始PDF文件已成功备份到: {permanent_pdf_path}")
+                # <<< 新增/修改结束 >>>
+                import fitz  # 局部导入
                 doc = fitz.open(temp_path)
-                if len(doc) == 0:
-                    raise ValueError("PDF文件为空，没有页面可以转换。")
-                page = doc.load_page(0)  # 获取第一页
-                pix = page.get_pixmap(dpi=200) # 渲染为像素图，提高分辨率
+                if len(doc) == 0: raise ValueError("PDF文件为空，没有页面可以转换。")
+                page = doc.load_page(0)
+                pix = page.get_pixmap(dpi=200)
                 doc.close()
                 mode = "RGBA" if pix.alpha else "RGB"
                 pil_image = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
-                logger.info("PDF第一页成功转换为Pillow图像对象。")
             else:
-                logger.info("检测到图片文件，使用Pillow直接打开...")
                 pil_image = Image.open(temp_path)
                 pil_image = ImageOps.exif_transpose(pil_image) # 修正图片方向
-                logger.info("图片文件成功加载为Pillow图像对象。")
 
-            if not pil_image:
-                raise ValueError("无法从上传的文件生成图像对象。")
+            if not pil_image: raise ValueError("无法从上传的文件生成图像对象。")
 
-            # --- 步骤 3.3: 生成最终文件名并保存图像和缩略图 (后续逻辑与原先类似) ---
+            # 4.3: 生成最终文件名 (关键：使用 owner_username)
             timestamp = int(time.time())
             rand_int = random.randint(100, 999)
+            output_image_filename = f"{owner_username}_{timestamp}_{rand_int}.jpg"
+            output_image_path = os.path.join(owner_upload_folder, output_image_filename)
             
-            # 统一将最终图片保存为 JPG 格式
-            output_image_filename = f"{username}_{timestamp}_{rand_int}.jpg"
-            output_image_path = os.path.join(current_upload_folder, output_image_filename)
-            
-            # 创建缩略图文件名
             thumb_base, _ = os.path.splitext(output_image_filename)
             thumb_filename = f"{thumb_base}_thumb.jpg"
-            thumb_save_path = os.path.join(current_upload_folder, thumb_filename)
+            thumb_save_path = os.path.join(owner_upload_folder, thumb_filename)
 
-            # 保存主图片 (转换为RGB以存为JPG)
-            if pil_image.mode in ('RGBA', 'P'):
-                background = Image.new('RGB', pil_image.size, (255, 255, 255))
-                mask = pil_image.convert('RGBA').split()[3]
-                background.paste(pil_image, mask=mask)
+            # 4.4: 保存主图片 (转换为RGB以存为JPG)
+            main_image_to_save = pil_image.copy()
+            if main_image_to_save.mode in ('RGBA', 'P'):
+                background = Image.new('RGB', main_image_to_save.size, (255, 255, 255))
+                # 检查并使用蒙版
+                try:
+                    mask = main_image_to_save.convert('RGBA').split()[3]
+                    background.paste(main_image_to_save, mask=mask)
+                except IndexError:
+                    background.paste(main_image_to_save) # 如果没有alpha通道
                 background.save(output_image_path, "JPEG", quality=85, optimize=True)
             else:
-                pil_image.convert('RGB').save(output_image_path, "JPEG", quality=85, optimize=True)
+                main_image_to_save.convert('RGB').save(output_image_path, "JPEG", quality=85, optimize=True)
             logger.info(f"已将上传文件内容保存为最终图片: '{output_image_filename}'")
+            main_image_to_save.close()
             
-            # 创建并保存缩略图
-            pil_image.thumbnail((400, 400), Image.Resampling.LANCZOS)
-            if pil_image.mode in ('RGBA', 'P'):
-                thumb_background = Image.new('RGB', pil_image.size, (255, 255, 255))
-                thumb_mask = pil_image.convert('RGBA').split()[3]
-                thumb_background.paste(pil_image, mask=thumb_mask)
+            # 4.5: 创建并保存缩略图
+            thumb_image_to_save = pil_image.copy()
+            thumb_image_to_save.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            if thumb_image_to_save.mode in ('RGBA', 'P'):
+                thumb_background = Image.new('RGB', thumb_image_to_save.size, (255, 255, 255))
+                try:
+                    thumb_mask = thumb_image_to_save.convert('RGBA').split()[3]
+                    thumb_background.paste(thumb_image_to_save, mask=thumb_mask)
+                except IndexError:
+                    thumb_background.paste(thumb_image_to_save)
                 thumb_background.save(thumb_save_path, "JPEG", quality=85, optimize=True)
             else:
-                pil_image.convert('RGB').save(thumb_save_path, "JPEG", quality=85, optimize=True)
+                thumb_image_to_save.convert('RGB').save(thumb_save_path, "JPEG", quality=85, optimize=True)
             logger.info(f"成功创建缩略图: '{thumb_filename}'")
-            
+            thumb_image_to_save.close()
             pil_image.close()
 
         except Exception as e:
             logger.error(f"处理上传的文件失败: {e}", exc_info=True)
             flash(f"文件处理失败，请确保文件未损坏且格式正确。错误: {e}", "error")
-            return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels, form_data=request.form.to_dict())
+            return redirect(url_for('add_honor'))
         finally:
-            # --- 步骤 3.4: 清理临时文件 ---
+            # 4.6: 清理临时文件
             if temp_path and os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
@@ -682,7 +766,7 @@ def add_honor():
                 except OSError as e:
                     logger.error(f"删除临时文件 '{temp_path}' 失败: {e}")
 
-        # 4. 保存荣誉数据 (这部分逻辑不变)
+        # 步骤 5: 保存荣誉数据到 JSON 文件 (关键：保存到 owner_username 名下)
         new_honor = {
             "id": f"honor_{timestamp}_{rand_int}",
             "name": honor_name,
@@ -692,18 +776,56 @@ def add_honor():
             "stamp_other": honor_stamp_other,
             "image_filename": output_image_filename,
             "honor_level": honor_level,
-            "thumb_filename": thumb_filename # 建议也保存缩略图文件名，方便调用
+            "thumb_filename": thumb_filename,
+            "original_pdf_filename": original_pdf_filename
         }
         honors_data = load_honors_data()
-        if username not in honors_data: honors_data[username] = []
-        honors_data[username].append(new_honor)
+        if owner_username not in honors_data:
+            honors_data[owner_username] = []
+        honors_data[owner_username].append(new_honor)
         save_honors_data(honors_data)
 
-        logger.info(f"用户 '{username}' 添加新荣誉 '{honor_name}' 成功")
+        logger.info(f"用户 '{current_username}' 为 '{owner_username}' 添加新荣誉 '{honor_name}' 成功")
         flash(f"荣誉 '{honor_name}' 添加成功！", "success")
         return redirect(url_for('home'))
 
-    return render_template('add_honor.html', honor_types=honor_types, honor_levels=honor_levels)
+    # --- 处理 GET 请求 (当用户访问 /add_honor 页面时) ---
+    template_data = {
+        "honor_types": honor_types,
+        "honor_levels": honor_levels,
+        "form_data": {} # 用于未来可能的表单回填
+    }
+
+    if current_user_role == 'admin':
+        # 管理员：需要所有专业和所有教师的信息，按专业分组
+        all_majors = sorted(list(set(u.get('major') for u in users_data.values() if u.get('major'))))
+        users_by_major = {}
+        for major in all_majors:
+            users_in_major = [
+                {"username": uname, "truename": udata.get('truename', uname)}
+                for uname, udata in users_data.items() if udata.get('major') == major
+            ]
+            users_by_major[major] = sorted(users_in_major, key=lambda x: x['truename'])
+        
+        template_data['all_majors'] = all_majors
+        template_data['users_by_major_json'] = users_by_major
+
+    elif current_user_role == 'major_admin':
+        # 专业负责人：需要自己专业下的所有教师
+        user_major = users_data.get(current_username, {}).get('major')
+        major_admin_users = []
+        if user_major:
+            major_admin_users = [
+                {"username": uname, "truename": udata.get('truename', uname)}
+                for uname, udata in users_data.items() if udata.get('major') == user_major
+            ]
+        template_data['major_admin_users'] = sorted(major_admin_users, key=lambda x: x['truename'])
+        template_data['user_major'] = user_major
+
+    # 对于 'user' 角色，不需要额外准备数据，直接渲染模板
+
+    return render_template('add_honor.html', **template_data)
+
 
 @app.route('/admin/all_honors')
 @login_required
@@ -786,6 +908,98 @@ def admin_all_honors():
         return redirect(url_for('admin_dashboard'))
 
 
+@app.route('/admin/all_honors_table')
+@login_required
+@admin_required
+def admin_all_honors_table():
+    """
+    【新增】管理员页面：以表格形式查看、筛选所有用户的全部荣誉。
+    """
+    logger.info(f"管理员 '{session.get('username')}' 正在访问所有荣誉的表格视图")
+
+    try:
+        honors_data = load_honors_data()
+        users_data = load_user_data()
+
+        # 1. 压平所有荣誉到一个列表，并补充教师信息
+        all_honors_raw = []
+        all_majors = set()
+        # 使用 all_teachers 存储 {username: truename} 以便排序和筛选
+        all_teachers = {username: data.get('truename', username) for username, data in users_data.items()}
+        
+        for username, user_honors in honors_data.items():
+            user_info = users_data.get(username, {})
+            major = user_info.get('major')
+            if major:
+                all_majors.add(major)
+
+            for honor in user_honors:
+                honor_copy = honor.copy()
+                honor_copy['username'] = username
+                honor_copy['truename'] = user_info.get('truename', username)
+                honor_copy['major'] = major or '未指定专业'
+                all_honors_raw.append(honor_copy)
+
+        # 2. 获取筛选和搜索参数
+        selected_date_filter = request.args.get('filter_date', 'all')
+        search_query = request.args.get('q', '').strip()
+        logger.info(f"管理员 '{session.get('username')}' 使用日期筛选: {selected_date_filter}, 搜索词: '{search_query}'")
+
+        # 3. 按日期筛选 (服务端)
+        today = datetime.date.today()
+        cutoff_date = None
+        if selected_date_filter == 'last_year': cutoff_date = today - relativedelta(years=1)
+        elif selected_date_filter == 'last_3_years': cutoff_date = today - relativedelta(years=3)
+        elif selected_date_filter == 'last_5_years': cutoff_date = today - relativedelta(years=5)
+
+        filtered_by_date_honors = []
+        if cutoff_date:
+            for honor in all_honors_raw:
+                honor_date = parse_date_safe(honor.get('date'))
+                if honor_date and honor_date >= cutoff_date:
+                    filtered_by_date_honors.append(honor)
+        else:
+            filtered_by_date_honors = all_honors_raw
+
+        # 4. 按关键词搜索 (服务端)
+        if search_query:
+            final_filtered_honors = [
+                honor for honor in filtered_by_date_honors
+                if search_query.lower() in honor.get('name', '').lower()
+            ]
+        else:
+            final_filtered_honors = filtered_by_date_honors
+
+        # 5. 数据处理和排序
+        processed_honors = []
+        for honor in final_filtered_honors:
+            honor_copy = honor.copy()
+            honor_copy['display_level'] = honor.get('honor_level') or honor.get('level') or '未指定'
+            processed_honors.append(honor_copy)
+
+        processed_honors.sort(key=lambda x: parse_date_safe(x.get('date')) or datetime.date.min, reverse=True)
+        logger.info(f"为管理员加载了 {len(processed_honors)} 条荣誉记录 (日期筛选: {selected_date_filter}, 搜索: '{search_query}')")
+
+        # 6. 准备传递给模板的数据
+        response_data = {
+            'honors': processed_honors,
+            'honor_types': HONOR_TYPE,
+            'honor_levels': LEVEL_TYPE,
+            'all_majors': sorted(list(all_majors)),
+            'all_teachers': all_teachers,
+            'selected_date_filter': selected_date_filter,
+            'search_query': search_query,
+            'username': session.get('username') # 兼容layout
+        }
+
+        return render_template('admin/all_honors_table.html', **response_data)
+
+    except Exception as e:
+        logger.error(f"管理员 '{session.get('username')}' 访问所有荣誉表格时出错: {e}", exc_info=True)
+        flash("加载所有荣誉表格时发生错误。", "error")
+        return redirect(url_for('admin_dashboard'))
+
+
 # --- 【重要】用下面的版本替换掉旧的 edit_honor 和 delete_honor 函数 ---
 @app.route('/edit_honor/<string:honor_id>', methods=['POST'])
 @login_required
@@ -847,7 +1061,27 @@ def edit_honor(honor_id):
             # --- 修正结束 ---
 
             pil_image = None
+            new_original_pdf_filename = None
+            
+            # 生成新的唯一文件名
+            timestamp = int(time.time())
+            rand_int = random.randint(100, 999)
+            base_filename = f"{owner_username}_{timestamp}_{rand_int}"
+            output_image_filename = f"{base_filename}.jpg"
+            output_thumb_filename = f"{base_filename}_thumb.jpg"
+            
+            output_image_path = os.path.join(current_upload_folder, output_image_filename)
+            output_thumb_path = os.path.join(current_upload_folder, output_thumb_filename)
+
+            
             if ext.lower() == '.pdf':
+                # <<< 新增/修改开始 >>>
+                # 保存新的原始PDF文件
+                new_original_pdf_filename = f"{base_filename}_original.pdf"
+                permanent_pdf_path = os.path.join(current_upload_folder, new_original_pdf_filename)
+                shutil.copy2(temp_path, permanent_pdf_path)
+                logger.info(f"编辑时保存了新的原始PDF: {permanent_pdf_path}")
+                # <<< 新增/修改结束 >>>
                 import fitz
                 doc = fitz.open(temp_path)
                 if len(doc) == 0: raise ValueError("PDF文件为空。")
@@ -902,10 +1136,17 @@ def edit_honor(honor_id):
             if honor_to_edit.get('thumb_filename'):
                 old_thumb_path = os.path.join(current_upload_folder, honor_to_edit['thumb_filename'])
                 if os.path.exists(old_thumb_path): os.remove(old_thumb_path)
-                
+            if honor_to_edit.get('original_pdf_filename'):
+                old_pdf_path = os.path.join(current_upload_folder, honor_to_edit['original_pdf_filename'])
+                if os.path.exists(old_pdf_path):
+                    os.remove(old_pdf_path)
+                    logger.info(f"编辑时删除了旧的原始PDF文件: {old_pdf_path}")
+                    
             # 更新JSON中的文件名
             honors_data[owner_username][honor_index]['image_filename'] = output_image_filename
             honors_data[owner_username][honor_index]['thumb_filename'] = output_thumb_filename
+            honors_data[owner_username][honor_index]['original_pdf_filename'] = new_original_pdf_filename
+
 
         except Exception as e:
             logger.error(f"编辑时处理新上传文件失败: {e}", exc_info=True)
@@ -956,6 +1197,8 @@ def delete_honor(honor_id):
 
     deleted_honor_name = honor_to_delete.get('name', '未知荣誉')
     image_filename = honor_to_delete.get('image_filename')
+    thumb_filename = honor_to_delete.get('thumb_filename')
+    original_pdf_filename = honor_to_delete.get('original_pdf_filename')
 
     # 从数据文件中移除记录
     honors_data[owner_username].pop(honor_index)
@@ -964,17 +1207,21 @@ def delete_honor(honor_id):
     save_honors_data(honors_data)
 
     # 删除关联的图片文件 (逻辑保持不变)
+    files_to_delete = []
     if image_filename:
-        original_path = os.path.join(current_upload_folder, image_filename)
-        base, ext = os.path.splitext(image_filename)
-        thumb_path = os.path.join(current_upload_folder, f"{base}_thumb{ext}")
-        for path_to_delete in [original_path, thumb_path]:
-            if os.path.exists(path_to_delete):
-                try:
-                    os.remove(path_to_delete)
-                    logger.info(f"成功删除文件: {path_to_delete}")
-                except OSError as e:
-                    logger.error(f"删除文件失败 '{path_to_delete}': {e}")
+        files_to_delete.append(os.path.join(current_upload_folder, image_filename))
+    if thumb_filename:
+        files_to_delete.append(os.path.join(current_upload_folder, thumb_filename))
+    if original_pdf_filename:
+        files_to_delete.append(os.path.join(current_upload_folder, original_pdf_filename))
+        
+    for path_to_delete in files_to_delete:
+        if os.path.exists(path_to_delete):
+            try:
+                os.remove(path_to_delete)
+                logger.info(f"成功删除文件: {path_to_delete}")
+            except OSError as e:
+                logger.error(f"删除文件失败 '{path_to_delete}': {e}")
 
     logger.info(f"用户 '{session.get('username')}' 成功删除了属于 '{owner_username}' 的荣誉 ID: {honor_id} (名: {deleted_honor_name})")
     flash(f"已成功删除教师 '{owner_username}' 的荣誉: '{deleted_honor_name}'。", "success")
@@ -1076,69 +1323,101 @@ def sanitize_filename(filename):
 @app.route('/download_honor_pdf/<string:honor_id>')
 @login_required
 def download_honor_pdf(honor_id):
-    """Downloads the image for a specific honor, converted to a single-page PDF."""
+    """
+    【最终版本】下载特定荣誉的PDF文件。
+    
+    该函数会优先寻找并提供原始上传的、完整的PDF文件。如果原始PDF文件
+    不存在（例如，该荣誉是直接上传的图片，或是旧系统的数据），它将自动
+    回退，将该荣誉的封面图片（JPG）转换成一个单页的PDF文件来提供下载。
+    """
     current_username = session.get('username')
     logger.info(f"用户 '{current_username}' 请求下载荣誉 ID '{honor_id}' 的 PDF 文件")
     
     try:
-        # Step 1: Find the honor record and its owner using the helper function.
-        # This allows both the owner and an admin to download the file.
+        # 步骤 1: 查找荣誉记录及其所有者
         honor_to_download, owner_username = find_honor_and_owner(honor_id)
 
         if not honor_to_download:
             logger.warning(f"用户 '{current_username}' 尝试下载不存在的荣誉 ID: {honor_id}")
             abort(404, description="找不到指定的荣誉记录。")
         
-        # Step 2: Check permissions.
+        # 步骤 2: 权限检查 (确保只有所有者或管理员可以下载)
         if session.get('role') != 'admin' and session.get('username') != owner_username:
             logger.warning(f"权限不足: 用户 '{current_username}' 尝试下载属于 '{owner_username}' 的荣誉 PDF (ID: {honor_id})")
             abort(403, description="您无权访问此荣誉的证明文件。")
 
+        # 步骤 3: 【优先路径】检查并发送原始PDF文件
+        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, owner_username))
+        original_pdf_filename = honor_to_download.get('original_pdf_filename')
+
+        if original_pdf_filename:
+            original_pdf_path = os.path.join(user_upload_folder, original_pdf_filename)
+            if os.path.exists(original_pdf_path):
+                logger.info(f"找到原始PDF文件，准备直接发送: {original_pdf_path}")
+                
+                # 准备一个用户友好的下载文件名
+                honor_name = honor_to_download.get('name', 'honor')
+                honor_date = honor_to_download.get('date', '')
+                download_filename = sanitize_filename(f"{honor_name}_{honor_date}.pdf")
+                
+                # 直接从目录发送文件，这是最高效的方式
+                return send_from_directory(
+                    directory=user_upload_folder,
+                    path=original_pdf_filename,
+                    as_attachment=True,
+                    download_name=download_filename
+                )
+            else:
+                logger.warning(f"记录中存在原始PDF文件名 '{original_pdf_filename}'，但文件在磁盘上未找到。将回退到从JPG生成。")
+        
+        # 步骤 4: 【回退路径】如果原始PDF不存在，则执行旧逻辑，从封面JPG生成单页PDF
+        logger.info(f"未找到原始PDF文件，执行回退方案：从封面图片生成单页PDF。")
+        
         image_filename = honor_to_download.get('image_filename')
         if not image_filename:
             logger.warning(f"荣誉 ID '{honor_id}' 没有关联的图片文件。")
             abort(404, description="该荣誉记录没有关联的证明文件。")
 
-        # Step 3: Construct the full path to the image file.
-        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, owner_username))
         original_image_path = os.path.join(user_upload_folder, image_filename)
-
         if not os.path.exists(original_image_path):
             logger.error(f"荣誉 ID '{honor_id}' 的图片文件不存在于路径: {original_image_path}")
             abort(404, description="找不到对应的图片文件。")
 
-        # Step 4: Open the image with Pillow and convert it to a PDF in memory.
+        # 步骤 5: 使用Pillow将图片转换为PDF
         img = None
         try:
             img = Image.open(original_image_path)
             
-            # Pillow requires the image to be in 'RGB' mode to save as PDF.
-            if img.mode != 'RGB':
-                # Create a white background for images with transparency (e.g., RGBA, P)
-                if img.mode in ('RGBA', 'P'):
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    # Ensure mask is correctly handled
-                    mask = img.convert('RGBA').split()[3] if img.mode == 'P' else img.split()[3]
+            # Pillow保存为PDF前，要求图片是'RGB'模式
+            if img.mode in ('RGBA', 'P'):
+                # 为带透明通道的图片创建一个白色背景
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                # 尝试使用alpha通道作为蒙版进行粘贴
+                try:
+                    mask = img.convert('RGBA').split()[3]
                     background.paste(img, mask=mask)
-                    img_rgb = background
-                else:
-                    img_rgb = img.convert('RGB')
-                img.close()
+                except IndexError:
+                    background.paste(img) # 如果没有alpha通道，直接粘贴
+                img_rgb = background
+            elif img.mode != 'RGB':
+                img_rgb = img.convert('RGB')
             else:
                 img_rgb = img
 
             pdf_buffer = io.BytesIO()
-            # Save the RGB image into the buffer as a PDF file.
-            img_rgb.save(pdf_buffer, format='PDF', resolution=100.0, save_all=False)
-            img_rgb.close()
-            pdf_buffer.seek(0)
+            # 将RGB图片保存到内存缓冲区中，格式为PDF
+            img_rgb.save(pdf_buffer, format='PDF', resolution=100.0)
+            pdf_buffer.seek(0) # 将指针移回文件开头
 
         except Exception as conv_e:
-            if img: img.close()
             logger.error(f"将图片 '{image_filename}' 转换为 PDF 时出错: {conv_e}", exc_info=True)
             abort(500, description="图片格式转换失败，无法生成PDF。")
+        finally:
+            if img: img.close()
+            if 'img_rgb' in locals() and img_rgb != img: img_rgb.close()
 
-        # Step 5: Prepare a user-friendly download filename and send the file.
+
+        # 步骤 6: 准备下载文件名并发送文件
         honor_name = honor_to_download.get('name', 'honor')
         honor_date = honor_to_download.get('date', '')
         download_filename = sanitize_filename(f"{honor_name}_{honor_date}.pdf")
@@ -1153,60 +1432,52 @@ def download_honor_pdf(honor_id):
         )
 
     except FileNotFoundError:
-         logger.error(f"文件未找到错误处理荣誉ID '{honor_id}' 的 PDF 下载请求。")
-         abort(404, description="找不到图片文件。")
+        logger.error(f"文件未找到错误处理荣誉ID '{honor_id}' 的 PDF 下载请求。")
+        abort(404, description="找不到图片文件。")
     except Exception as e:
         logger.error(f"下载并转换荣誉图片为 PDF (ID '{honor_id}') 时发生错误: {e}", exc_info=True)
         abort(500, description="处理PDF下载时发生服务器内部错误。")
 
-
 @app.route('/download_honor_image/<string:honor_id>/jpg')
 @login_required
 def download_honor_image_jpg(honor_id):
-    """Downloads the image for a specific honor, converted to JPG."""
+    """Downloads the image for a specific honor, converted to JPG. (Admin-aware)"""
     current_username = session.get('username')
     logger.info(f"用户 '{current_username}' 请求下载荣誉 ID '{honor_id}' 的 JPG 图片")
+
     try:
-        honors_data = load_honors_data()
-        user_honors = honors_data.get(current_username, [])
-        honor_to_download = next((h for h in user_honors if h.get('id') == honor_id), None)
+        honor_to_download, owner_username = find_honor_and_owner(honor_id)
 
         if not honor_to_download:
-            logger.warning(f"用户 '{current_username}' 尝试下载无效或不属于自己的荣誉 ID: {honor_id}")
-            abort(404, description="找不到指定的荣誉记录或无权访问。")
+            logger.warning(f"用户 '{current_username}' 尝试下载不存在的荣誉 ID: {honor_id}")
+            abort(404, description="找不到指定的荣誉记录。")
+
+        # 权限验证
+        if session.get('role') != 'admin' and current_username != owner_username:
+            logger.warning(f"权限不足: 用户 '{current_username}' 尝试下载属于 '{owner_username}' 的 JPG (ID: {honor_id})")
+            abort(403, description="您无权访问此荣誉的证明文件。")
 
         image_filename = honor_to_download.get('image_filename')
         if not image_filename:
-            logger.warning(f"荣誉 ID '{honor_id}' 没有关联的图片文件。")
             abort(404, description="该荣誉记录没有关联的证明文件。")
 
-        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, current_username))
+        user_upload_folder = os.path.abspath(os.path.join(UPLOAD_FOLDER, owner_username))
         original_image_path = os.path.join(user_upload_folder, image_filename)
 
         if not os.path.exists(original_image_path):
-            logger.error(f"用户 '{current_username}' 的图片文件不存在: {original_image_path}")
             abort(404, description="找不到对应的图片文件。")
 
         img = Image.open(original_image_path)
         output_buffer = io.BytesIO()
-        original_mode = img.mode
 
         if img.mode in ('RGBA', 'P'):
-            logger.debug(f"图片 '{image_filename}' (模式: {img.mode}) 正在转换为 RGB 用于 JPG 保存。")
             background = Image.new('RGB', img.size, (255, 255, 255))
-            try: background.paste(img, mask=img.split()[3])
-            except IndexError:
-                 try: background.paste(img, mask=img.convert("RGBA").split()[3])
-                 except Exception: background.paste(img)
+            mask = img.convert('RGBA').split()[3]
+            background.paste(img, mask=mask)
             img.close()
             img = background
         elif img.mode != 'RGB':
-             logger.debug(f"图片 '{image_filename}' (模式: {img.mode}) 正在尝试转换为 RGB。")
-             try: img = img.convert('RGB')
-             except Exception as conv_e:
-                 logger.error(f"无法将图片 '{image_filename}' (模式: {original_mode}) 转换为 RGB: {conv_e}")
-                 img.close()
-                 abort(500, description="图片格式转换失败。")
+             img = img.convert('RGB')
 
         img.save(output_buffer, format='JPEG', quality=85, optimize=True)
         img.close()
@@ -1215,16 +1486,15 @@ def download_honor_image_jpg(honor_id):
         honor_name = honor_to_download.get('name', 'honor')
         honor_date = honor_to_download.get('date', '')
         download_filename = sanitize_filename(f"{honor_name}_{honor_date}.jpg")
-        logger.info(f"成功转换图片 '{image_filename}' 为 JPG，准备发送为 '{download_filename}'")
-
+        
         return send_file(output_buffer, mimetype='image/jpeg', as_attachment=True, download_name=download_filename)
 
     except FileNotFoundError:
-         logger.error(f"文件未找到错误处理荣誉ID '{honor_id}' 的下载请求。")
          abort(404, description="找不到图片文件。")
     except Exception as e:
         logger.error(f"下载并转换荣誉图片 ID '{honor_id}' 时发生错误: {e}", exc_info=True)
         abort(500, description="处理图片下载时发生服务器内部错误。")
+
 
 @app.route('/download_individual_pdfs_zip', methods=['POST'])
 @login_required
@@ -1584,6 +1854,205 @@ def admin_delete_user(username):
     flash(f"用户 '{deleted_user_truename}' ({username}) 及其所有数据已彻底删除。", "success")
     return redirect(url_for('admin_user_management'))
 
+
+@app.route('/admin/user/reset_password_default/<username>', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_password_default(username):
+    """管理员将用户密码重置为默认值 '123456'"""
+    # 安全检查：管理员不能通过此快捷方式重置自己的密码
+    if username == session.get('username'):
+        flash("出于安全考虑，您不能将自己的密码重置为默认值。", "warning")
+        return redirect(url_for('admin_user_management'))
+
+    users = load_user_data()
+    if username not in users:
+        flash("用户不存在。", "error")
+        return redirect(url_for('admin_user_management'))
+
+    # 硬编码的默认密码
+    default_password = '123456'
+    
+    # 使用与注册和密码修改相同的哈希方法
+    users[username]['password'] = generate_password_hash(default_password)
+    
+    save_data(USER_DATA_FILE, users)
+    
+    truename = users[username].get('truename', username)
+    logger.info(f"管理员 '{session.get('username')}' 将用户 '{truename}' ({username}) 的密码重置为了默认密码。")
+    flash(f"用户 '{truename}' ({username}) 的密码已成功重置为 '123456'！", "success")
+    return redirect(url_for('admin_user_management'))
+
+
+
+@app.route('/admin/download_honors_zip', methods=['POST'])
+@login_required
+@admin_required
+def admin_download_honors_zip():
+    """【修正】管理员下载多个荣誉的JPG图片并打包成ZIP。"""
+    admin_username = session.get('username')
+    logger.info(f"管理员 '{admin_username}' 请求批量下载荣誉图片为 ZIP")
+
+    data = request.get_json()
+    if not data or 'honor_ids' not in data or not isinstance(data['honor_ids'], list):
+        return jsonify(error="请求体必须包含一个 'honor_ids' 列表"), 400
+
+    honor_ids = data['honor_ids']
+    if not honor_ids: return jsonify(error="honor_ids 列表不能为空"), 400
+
+    zip_buffer = io.BytesIO()
+    processed_filenames = set()
+    users = load_user_data()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for honor_id in honor_ids:
+            honor, owner_username = find_honor_and_owner(honor_id)
+            
+            # --- 这里是修正后的代码 ---
+            if not honor:
+                continue
+            image_filename = honor.get('image_filename')
+            if not image_filename:
+                continue
+            # --- 修正结束 ---
+
+            original_image_path = os.path.join(UPLOAD_FOLDER, owner_username, image_filename)
+            if not os.path.exists(original_image_path): continue
+            
+            truename = users.get(owner_username, {}).get('truename', owner_username)
+            base_name = sanitize_filename(f"{truename}_{honor.get('name', 'honor')}_{honor.get('date', '')}")
+            zip_entry_name = f"{base_name}.jpg"
+            counter = 1
+            while zip_entry_name in processed_filenames:
+                zip_entry_name = f"{base_name}_{counter}.jpg"; counter += 1
+            processed_filenames.add(zip_entry_name)
+            
+            zipf.write(original_image_path, arcname=zip_entry_name)
+
+    zip_buffer.seek(0)
+    zip_download_filename = f"admin_honors_export_{datetime.date.today().strftime('%Y%m%d')}.zip"
+    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=zip_download_filename)
+
+
+@app.route('/admin/download_individual_pdfs_zip', methods=['POST'])
+@login_required
+@admin_required
+def admin_download_individual_pdfs_zip():
+    """【修正】管理员将多个荣誉图片分别转为独立的PDF，并打包成ZIP文件下载。"""
+    admin_username = session.get('username')
+    logger.info(f"管理员 '{admin_username}' 请求下载独立的PDF压缩包")
+
+    data = request.get_json()
+    if not data or 'honor_ids' not in data or not isinstance(data['honor_ids'], list):
+        return jsonify(error="请求体必须包含一个 'honor_ids' 列表"), 400
+
+    honor_ids = data['honor_ids']
+    if not honor_ids: return jsonify(error="honor_ids 列表不能为空"), 400
+
+    zip_buffer = io.BytesIO()
+    processed_filenames = set()
+    users = load_user_data()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for honor_id in honor_ids:
+            honor, owner_username = find_honor_and_owner(honor_id)
+
+            # --- 这里是修正后的代码 ---
+            if not honor:
+                continue
+            image_filename = honor.get('image_filename')
+            if not image_filename:
+                continue
+            # --- 修正结束 ---
+            
+            original_image_path = os.path.join(UPLOAD_FOLDER, owner_username, image_filename)
+            if not os.path.exists(original_image_path): continue
+            
+            img = None
+            try:
+                img = Image.open(original_image_path)
+                if img.mode != 'RGB': img_rgb = img.convert('RGB')
+                else: img_rgb = img.copy()
+                img.close()
+
+                pdf_single_buffer = io.BytesIO()
+                img_rgb.save(pdf_single_buffer, format='PDF', resolution=100.0)
+                img_rgb.close()
+
+                truename = users.get(owner_username, {}).get('truename', owner_username)
+                base_name = sanitize_filename(f"{truename}_{honor.get('name', 'honor')}_{honor.get('date', '')}")
+                zip_entry_name = f"{base_name}.pdf"
+                counter = 1
+                while zip_entry_name in processed_filenames:
+                    zip_entry_name = f"{base_name}_{counter}.pdf"; counter += 1
+                processed_filenames.add(zip_entry_name)
+                
+                zipf.writestr(zip_entry_name, pdf_single_buffer.getvalue())
+                pdf_single_buffer.close()
+            except Exception as e:
+                logger.error(f"处理荣誉ID '{honor_id}' 的图片为PDF时出错: {e}")
+                if img: img.close()
+    
+    zip_buffer.seek(0)
+    zip_download_filename = f"admin_honors_pdf_export_{datetime.date.today().strftime('%Y%m%d')}.zip"
+    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=zip_download_filename)
+    """【修正】管理员将多个荣誉图片分别转为独立的PDF，并打包成ZIP文件下载。"""
+    admin_username = session.get('username')
+    logger.info(f"管理员 '{admin_username}' 请求下载独立的PDF压缩包")
+
+    data = request.get_json()
+    if not data or 'honor_ids' not in data or not isinstance(data['honor_ids'], list):
+        return jsonify(error="请求体必须包含一个 'honor_ids' 列表"), 400
+
+    honor_ids = data['honor_ids']
+    if not honor_ids: return jsonify(error="honor_ids 列表不能为空"), 400
+
+    zip_buffer = io.BytesIO()
+    processed_filenames = set()
+    users = load_user_data()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for honor_id in honor_ids:
+            honor, owner_username = find_honor_and_owner(honor_id)
+            # --- 语法修正开始 ---
+            if not honor:
+                continue
+            image_filename = honor.get('image_filename')
+            if not image_filename:
+                continue
+            # --- 语法修正结束 ---
+            
+            original_image_path = os.path.join(UPLOAD_FOLDER, owner_username, image_filename)
+            if not os.path.exists(original_image_path): continue
+            
+            img = None
+            try:
+                img = Image.open(original_image_path)
+                if img.mode != 'RGB': img_rgb = img.convert('RGB')
+                else: img_rgb = img.copy()
+                img.close()
+
+                pdf_single_buffer = io.BytesIO()
+                img_rgb.save(pdf_single_buffer, format='PDF', resolution=100.0)
+                img_rgb.close()
+
+                truename = users.get(owner_username, {}).get('truename', owner_username)
+                base_name = sanitize_filename(f"{truename}_{honor.get('name', 'honor')}_{honor.get('date', '')}")
+                zip_entry_name = f"{base_name}.pdf"
+                counter = 1
+                while zip_entry_name in processed_filenames:
+                    zip_entry_name = f"{base_name}_{counter}.pdf"; counter += 1
+                processed_filenames.add(zip_entry_name)
+                
+                zipf.writestr(zip_entry_name, pdf_single_buffer.getvalue())
+                pdf_single_buffer.close()
+            except Exception as e:
+                logger.error(f"处理荣誉ID '{honor_id}' 的图片为PDF时出错: {e}")
+                if img: img.close()
+    
+    zip_buffer.seek(0)
+    zip_download_filename = f"admin_honors_pdf_export_{datetime.date.today().strftime('%Y%m%d')}.zip"
+    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=zip_download_filename)
 
 # --- 主程序入口 ---
 if __name__ == '__main__':
