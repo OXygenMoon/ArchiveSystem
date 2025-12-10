@@ -98,7 +98,7 @@
                     </div>
                     <div class="form-control">
                          <label class="label py-0"><span class="label-text-alt">结束日期</span></label>
-                        <input type="date" id="end-date-input" class="input input-bordered input-sm" value="{{ request.args.get('end_date', '') }}" max="{{ now().strftime('%Y-%m-%d') }}">
+                        <input type="date" id="end-date-input" class="input input-bordered input-sm" value="{{ request.args.get('end_date', '') }}" max="{{ now.strftime('%Y-%m-%d') }}">
                     </div>
                 </div>
                 <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
@@ -182,11 +182,11 @@
         <tbody id="honors-table-body">
           {% if honors %}
               {% for honor in honors %}
-              <tr data-id="{{ honor.id }}" data-type="{{ honor.type | escape }}" data-level="{{ honor.display_level | escape }}" data-name="{{ honor.name | escape }}">
+              <tr data-id="{{ honor.id }}" data-type="{{ honor.type | escape }}" data-level="{{ honor.honor_level | default('', true) | escape }}" data-name="{{ honor.name | escape }}">
                 <td class="font-medium">{{ honor.name }}</td>
                 <td>{{ honor.type }}</td>
                 <td>
-                    <span class="badge badge-ghost badge-md">{{ honor.display_level }}</span>
+                    <span class="badge badge-ghost badge-md">{{ honor.honor_level }}</span>
                 </td>
                 <td>{{ honor.date }}</td>
                 <td title="{{ honor.stamp }}{% if honor.stamp_other %} / {{ honor.stamp_other }}{% endif %}">

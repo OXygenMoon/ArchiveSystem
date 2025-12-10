@@ -14,9 +14,9 @@
         "username": "zy",
         "password": "scrypt:32768:8:1$AEIHYIJeQkcNR1hy$1fe8d430d9ff1c615a954f870cfde059056b769e673882650020970516dbaac984cea1b52b1440c01166bcd69763a95092d92ddb730c913fbe29d89368960f97",
         "truename": "张祎",
-        "major": "幼儿教师",
+        "major": "幼儿",
         "employment_day": "2022-08-01",
-        "role": "admin",
+        "role": "user",
         "motto": ""
     },
     "wqw": {

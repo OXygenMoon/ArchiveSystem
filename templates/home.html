@@ -1,304 +1,195 @@
-<!DOCTYPE html>
 {% extends "layout.html" %}
 
-{% block title %}我的看板{% endblock %}
+{% block title %}{% if is_self_view %}我的看板{% else %}{{ view_truename }}的看板{% endif %}{% endblock %}
 
 {% block head_extra %}
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
-
 <style>
-    /* --- 布局与通用样式 --- */
-    .honor-section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem; /* 增加与下方内容的间距 */
-        flex-wrap: wrap;
-        gap: 1rem; /* 标题和筛选器之间的间距 */
-    }
-
-    .honor-filters-container {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem; /* 筛选器之间的间距 */
-    }
-
-    .honor-filter-container .ts-control {
-    flex-wrap: nowrap;
-    overflow-x: auto; /* 当内容超出时，出现横向滚动条 */
-    }
-
-    /* 2. (可选) 美化滚动条，让其在大部分浏览器中隐藏，但保留滚动功能 */
-    .honor-filter-container .ts-control {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
-    }
-    .honor-filter-container .ts-control::-webkit-scrollbar {
-        display: none; /* Chrome, Safari, Opera */
-    }
-
-    .honor-filter-container {
-        /* 为筛选器容器设定一个最大宽度，防止被无限撑开 */
-        max-width: 220px; 
-        flex-grow: 1; /* 允许它在有空间时增长到最大宽度 */
-    }
-
-    /* 【新增】关键词搜索框样式 */
-    .keyword-search-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-grow: 1; /* 在小屏幕上允许其增长 */
-        max-width: 250px;
-    }
-
-    .keyword-search-container input {
-        width: 100%;
-    }
-
-
-    /* --- 个性签名编辑区域样式 --- */
-    #motto-display-area {
-        cursor: pointer;
-        min-height: 2.5rem; /* 预留高度防止编辑按钮出现时布局跳动 */
-    }
-    #motto-display-area .btn {
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-    }
-    #motto-display-area:hover .btn {
-        opacity: 0.7;
-    }
-    #motto-display-area .btn:hover {
-        opacity: 1;
-    }
-    #motto-text {
-        transition: color 0.2s;
-    }
-    #motto-display-area:hover #motto-text {
-        color: hsl(var(--p)); /* 悬停时文本高亮 */
-    }
-
-
-    /* --- 编辑荣誉模态框样式 --- */
+    /* (CSS 样式保持不变) */
+    .honor-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
+    .honor-filters-container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+    .honor-filter-container .ts-control { flex-wrap: nowrap; overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; }
+    .honor-filter-container .ts-control::-webkit-scrollbar { display: none; }
+    .honor-filter-container { max-width: 220px; flex-grow: 1; }
+    .keyword-search-container { display: flex; align-items: center; gap: 0.5rem; flex-grow: 1; max-width: 250px; }
+    .keyword-search-container input { width: 100%; }
+    #motto-display-area { cursor: pointer; min-height: 2.5rem; }
+    #motto-display-area .btn { opacity: 0; transition: opacity 0.2s ease-in-out; }
+    #motto-display-area:hover .btn { opacity: 0.7; }
+    #motto-display-area .btn:hover { opacity: 1; }
+    #motto-text { transition: color 0.2s; }
+    #motto-display-area:hover #motto-text { color: hsl(var(--p)); }
     #edit_honor_modal .modal-box { max-width: 48rem; width: 100%; }
     #edit_honor_modal .modal-content-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; width: 100%; }
     #edit_honor_modal .modal-image-container { display: flex; flex-direction: column; align-items: center; }
     #edit_honor_modal .modal-image-container img { max-width: 100%; max-height: 300px; object-fit: contain; margin-bottom: 1rem; border-radius: 0.375rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
-
-    /* 加载遮罩层 */
     .loading-overlay { position: absolute; inset: 0; background-color: rgba(255, 255, 255, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: inherit; }
-
-    /* 响应式调整 */
     @media (max-width: 768px) {
         #edit_honor_modal .modal-box { max-width: 95%; padding: 1.5rem 1rem; }
         #edit_honor_modal .modal-content-grid { grid-template-columns: 1fr; gap: 1rem; }
         #edit_honor_modal .modal-image-container { order: -1; }
         #edit_honor_modal .modal-image-container img { max-height: 200px; }
-        .keyword-search-container { max-width: none; } /* 在移动端允许搜索框占满宽度 */
+        .keyword-search-container { max-width: none; }
     }
-
-    /* --- 其他微调 --- */
-    .card figure img { will-change: transform; } /* 优化动画性能 */
-    .toast { z-index: 9999 !important; } /* 确保 Toast 在最上层 */
-
-            /* --- 【新增/修改】Tom Select 与 DaisyUI 融合样式 --- */
+    .card figure img { will-change: transform; }
+    .toast { z-index: 9999 !important; }
     :root {
         --ts-border-radius: var(--rounded-btn, 0.5rem);
-        --ts-font-size: 0.875rem; /* 对应 input-sm */
+        --ts-font-size: 0.875rem;
         --ts-line-height: 1.25rem;
     }
-    .ts-control {
-        background-color: hsl(var(--b1)) !important;
-        min-height: 2rem; /* 对应 DaisyUI 的 input-sm 高度 */
-        max-height: 2rem;
-        border-radius: 30px;
-        box-shadow: none !important;
-    }
+    .ts-control { background-color: hsl(var(--b1)) !important; min-height: 2rem; max-height: 2rem; border-radius: 30px; box-shadow: none !important; }
     .ts-control:hover { border-color: hsl(var(--bc) / 0.3) !important; }
-    .ts-control.focus {
-        border-color: hsl(var(--p)) !important;
-        box-shadow: 0 0 0 1px hsl(var(--p)) !important;
-    }
-
-    .ts-wrapper.is-filtered .ts-control {
-        /* 将边框颜色变为主题的主色 */
-        border-color: hsl(var(--p) / 0.8) !important;
-        box-shadow: 0 0 0 1px hsl(var(--p) / 0.6) !important;
-    }
-
-    .ts-wrapper.is-filtered .ts-control input::placeholder {
-        /* 将占位符文本颜色也变为主题的主色 */
-        color: hsl(var(--p)) !important;
-        opacity: 1; /* 确保颜色完全不透明 */
-        font-weight: 500; /* 可以适当加粗，以示区别 */
-    }
-
+    .ts-control.focus { border-color: hsl(var(--p)) !important; box-shadow: 0 0 0 1px hsl(var(--p)) !important; }
+    .ts-wrapper.is-filtered .ts-control { border-color: hsl(var(--p) / 0.8) !important; box-shadow: 0 0 0 1px hsl(var(--p) / 0.6) !important; }
+    .ts-wrapper.is-filtered .ts-control input::placeholder { color: hsl(var(--p)) !important; opacity: 1; font-weight: 500; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-8">
 
-    {# --- 1. 个人信息与个性签名 Section --- #}
     <section>
-    <h2 class="text-2xl font-semibold mb-4 divider divider-start">个人信息</h2>
+    <h2 class="text-2xl font-semibold mb-4 divider divider-start">
+        {% if is_self_view %}个人信息{% else %}教师信息{% endif %}
+    </h2>
     <div class="flex flex-col md:flex-row gap-6 bg-base-200 p-6 rounded-lg shadow">
-
-        {# === 左侧：基本信息 (响应式横向排列) === #}
         <div class="flex-1 flex flex-col sm:flex-row sm:items-baseline gap-6">
-            {# --- 姓名 --- #}
             <div>
                 <div class="text-sm font-medium text-base-content/70 mb-1">姓名</div>
-                <div class="text-2xl font-bold text-primary">{{ truename or username }}</div>
+                <div class="text-2xl font-bold text-primary">{{ view_truename }}</div>
             </div>
-
-            {# --- 专业 (带响应式分隔线) --- #}
-            {% if major %}
+            {% if view_major %}
             <div class="pt-2 sm:pt-0 sm:pl-6 sm:border-l sm:border-base-300">
                 <div class="text-sm font-medium text-base-content/70 mb-1">专业</div>
-                <div class="text-2xl font-bold text-secondary">{{ major }}</div>
+                <div class="text-2xl font-bold text-secondary">{{ view_major }}</div>
             </div>
             {% endif %}
-
-            {# --- 入职时长 (带响应式分隔线) --- #}
-            {% if employment_duration %}
+            {% if employment_duration != "N/A" %}
             <div class="pt-2 sm:pt-0 sm:pl-6 sm:border-l sm:border-base-300">
                 <div class="text-sm font-medium text-base-content/70 mb-1">入职时长</div>
                 <div class="text-2xl font-bold text-accent">{{ employment_duration }}</div>
             </div>
             {% endif %}
         </div>
-
-        {# === 右侧：个性签名 === #}
         <div class="flex-1 md:border-l md:border-base-300 md:pl-6">
             <div class="text-sm font-medium text-base-content/70 mb-2">个性签名</div>
-            {# --- 签名显示区域 --- #}
-            <div id="motto-display-area" class="flex items-center group py-1">
-                <span id="motto-text" class="text-base-content/90 mr-2 flex-grow italic" title="点击编辑签名">"{{ motto or '编辑您的个性签名...' }}"</span>
-                <button id="edit-motto-btn" type="button" class="btn btn-ghost btn-xs p-1 focus:opacity-70" title="编辑签名">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
-                </button>
-            </div>
-            {# --- 签名编辑区域 (默认隐藏) --- #}
-            <div id="motto-edit-area" class="hidden">
-                <div class="flex items-center gap-2">
-                    <input type="text" id="motto-input" class="input input-bordered input-sm w-full flex-grow" placeholder="输入签名 (最多100字)" maxlength="100">
-                    <button id="save-motto-btn" type="button" class="btn btn-primary btn-sm">
-                        <span class="loading loading-spinner loading-xs hidden"></span>
-                        保存
+            {% if is_self_view %}
+                <div id="motto-display-area" class="flex items-center group py-1">
+                    <span id="motto-text" class="text-base-content/90 mr-2 flex-grow italic" title="点击编辑签名">"{{ motto or '编辑您的个性签名...' }}"</span>
+                    <button id="edit-motto-btn" type="button" class="btn btn-ghost btn-xs p-1 focus:opacity-70" title="编辑签名">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                     </button>
-                    <button id="cancel-motto-btn" type="button" class="btn btn-ghost btn-sm">取消</button>
                 </div>
-                <div id="motto-error" class="text-error text-xs mt-1 h-4"></div>
-            </div>
+                <div id="motto-edit-area" class="hidden">
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="motto-input" class="input input-bordered input-sm w-full flex-grow" placeholder="输入签名 (最多100字)" maxlength="100">
+                        <button id="save-motto-btn" type="button" class="btn btn-primary btn-sm"><span class="loading loading-spinner loading-xs hidden"></span>保存</button>
+                        <button id="cancel-motto-btn" type="button" class="btn btn-ghost btn-sm">取消</button>
+                    </div>
+                    <div id="motto-error" class="text-error text-xs mt-1 h-4"></div>
+                </div>
+            {% else %}
+                <div class="flex items-center py-1">
+                    <span class="text-base-content/90 mr-2 flex-grow italic">"{{ motto or '该用户暂未设置签名' }}"</span>
+                </div>
+            {% endif %}
         </div>
     </div>
 </section>
 
-    {# --- 2. 荣誉统计 Section (显示全部时间的统计数据) --- #}
+    <section>
+        <h2 class="text-2xl font-semibold mb-4 divider divider-start">数据图表 (荣誉时间线)</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div class="lg:col-span-5 card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title">荣誉时间线 (按月)</h3>
+                    <div class="h-80">
+                        <div id="time_series_chart" style="width: 100%; height: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
     <section>
     <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
-        <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计</h2>
-        {# 仅在有统计数据时显示切换按钮 #}
-
+        <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计 (筛选后)</h2>
         <div class="btn-group">
             <button id="stats-toggle-type" class="btn btn-sm btn-active" onclick="switchStatsView('type')">按类型</button>
             <button id="stats-toggle-level" class="btn btn-sm" onclick="switchStatsView('level')">按等级</button>
         </div>
-
     </div>
-
-    {# --- 统计数据展示区 --- #}
-    {# 如果根据时间筛选后没有任何荣誉，显示统一的提示信息 #}
-
-        {# 按类型统计 (默认显示) #}
-        <div id="stats-by-type">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                {# --- 总计卡片 (按类型) --- #}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-type" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {# --- 各类型卡片 --- #}
-                {% for type_name in honor_types %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div> {# 初始值由JS计算 #}
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
+    <div id="stats-by-type">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-type" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
             </div>
-        </div>
-        {# 按等级统计 (默认隐藏) #}
-        <div id="stats-by-level" class="hidden">
-             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                {# --- 总计卡片 (按等级) --- #}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-level" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {# --- 各等级卡片 --- #}
-                {% for level_name in honor_levels %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div> {# 初始值由JS计算 #}
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
+            {% for type_name in honor_types %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
             </div>
+            {% endfor %}
         </div>
-
+    </div>
+    <div id="stats-by-level" class="hidden">
+         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-level" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
+            </div>
+            {% for level_name in honor_levels %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 </section>
 
-    {# --- 3. 荣誉列表与筛选 Section --- #}
     <section>
         <div class="honor-section-header">
-            {# 动态标题，显示当前时间范围 #}
             {% set filter_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
             {% set filter_text = filter_map.get(selected_date_filter, '筛选时间') %}
-            {# 【新增】判断是否为自选时间段，并更新标题文本 #}
             {% if selected_date_filter == 'custom' and request.args.get('start_date') and request.args.get('end_date') %}
                 {% set filter_text = request.args.get('start_date') + ' 至 ' + request.args.get('end_date') %}
             {% elif selected_date_filter == 'custom' %}
                 {% set filter_text = '自选时间段' %}
             {% endif %}
+
             <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">
-                我的荣誉记录 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
+                {% if is_self_view %}我的荣誉记录{% else %}{{ view_truename }}的荣誉记录{% endif %}
+                <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
             </h2>
 
-            {# 筛选器容器 #}
             <div class="honor-filters-container">
-                {# 【新增】关键词搜索框 #}
                 <div class="keyword-search-container" title="按荣誉名称搜索当前列表">
                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
                     <input type="text" id="keyword-search-input" class="input input-bordered input-sm w-full" placeholder="搜索荣誉名称..."/>
                 </div>
 
-                {# 【全新】使用 DaisyUI Dropdown 组件实现紧凑的时间筛选 #}
+                {% set base_url = url_for('home') if is_self_view else url_for('view_user_dashboard', username_to_view=view_username) %}
+
                 <div class="dropdown dropdown-end">
-                    {# 1. 这是下拉菜单的触发按钮，显示当前筛选状态 #}
                     <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal">
-                        <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" /></svg> -->
-                        <span>{{ filter_text }}</span> {# filter_text 变量来自页面顶部的标题逻辑，可复用 #}
+                        <span>{{ filter_text }}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </label>
-
-                    {# 2. 这是下拉菜单的内容区域 #}
                     <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-80 space-y-3">
                         <h4 class="font-bold px-4">筛选时间</h4>
-                        {# 预设的时间范围 #}
                         <ul class="menu p-0">
-                            <li><a href="{{ url_for('home', filter_date='all') }}">全部时间</a></li>
-                            <li><a href="{{ url_for('home', filter_date='last_year') }}">一年内</a></li>
-                            <li><a href="{{ url_for('home', filter_date='last_3_years') }}">三年内</a></li>
-                            <li><a href="{{ url_for('home', filter_date='last_5_years') }}">五年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=all">全部时间</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_year">一年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_3_years">三年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_5_years">五年内</a></li>
                         </ul>
                         <div class="divider my-1">或自选范围</div>
-                        {# 自选日期的表单 #}
                         <div class="space-y-2 px-2">
                             <div class="form-control">
                                 <label class="label py-0"><span class="label-text-alt">开始日期</span></label>
@@ -308,14 +199,13 @@
                             <div class="form-control">
                                  <label class="label py-0"><span class="label-text-alt">结束日期</span></label>
                                 <input type="date" id="end-date-input" name="end_date" class="input input-bordered input-sm"
-                                       value="{{ request.args.get('end_date', '') }}" title="结束日期" max="{{ now().strftime('%Y-%m-%d') }}">
+                                       value="{{ request.args.get('end_date', '') }}" title="结束日期" max="{{ now.strftime('%Y-%m-%d') }}">
                             </div>
                         </div>
                         <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
                     </div>
                 </div>
-                {# 仅当当前列表有数据时，才显示客户端筛选器 #}
-                {# 【全新】类型筛选 Dropdown #}
+
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="type-filter-btn">
                         <span id="type-filter-label">筛选类型</span>
@@ -335,7 +225,7 @@
                         </div>
                     </div>
                 </div>
-                {# 【全新】等级筛选 Dropdown #}
+
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="level-filter-btn">
                         <span id="level-filter-label">筛选等级</span>
@@ -356,35 +246,37 @@
                     </div>
                 </div>
 
-                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置筛选
+                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选" data-base-url="{{ base_url }}?filter_date=all">
+                    重置筛选
                 </button>
 
             </div>
         </div>
 
-        {# 荣誉卡片网格 #}
         {% if honors %}
             <div id="honors-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 mt-4">
                 {% for honor in honors %}
-                    {# *** 关键：统一处理 level / honor_level 兼容问题 *** #}
-                    {% set current_level = honor.honor_level or honor.level %}
+                    {% set current_level = honor.honor_level %}
                     <div id="card-{{ honor.id }}"
                          class="card bg-base-100 shadow-xl transition-shadow duration-300 hover:shadow-2xl group overflow-hidden"
                          data-type="{{ honor.type | escape }}"
                          data-level="{{ current_level | default('', true) | escape }}"
                          data-name="{{ honor.name | escape }}"
-                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}')">
-                        {# 设定图片容器，防止图片加载时布局跳动 #}
-                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200" onclick="showImageModal('{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}', '{{ honor.name | escape | replace("'", "\\'") }}')">
-                            {% set parts = honor.image_filename.rsplit('.', 1) %}
-                            {% set thumb_filename = parts[0] + '_thumb.' + parts[1] if parts|length == 2 else honor.image_filename %}
+                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=view_username, filename=honor.image_filename) }}')">
+
+                        {% set pages_list = honor.page_images or [honor.image_filename] %}
+                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200"
+                                onclick='showImageModal("{{ view_username }}", "{{ honor.name | escape | replace("'", "\\'") }}", {{ pages_list | tojson | safe }})'>
+
+                            {% set thumb_filename = honor.thumb_filename or honor.image_filename %}
                             <img id="img-thumb-{{ honor.id }}"
-                                 src="{{ url_for('uploaded_file_user', username=username, filename=thumb_filename) }}"
+                                 src="{{ url_for('uploaded_file_user', username=view_username, filename=thumb_filename) }}"
                                  loading="lazy"
-                                 alt="{{ honor.name }} 缩略图" loading="lazy"
+                                 alt="{{ honor.name }} 缩略图"
                                  class="object-cover h-full w-full"
-                                 onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}';" />
+                                 onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=view_username, filename=honor.image_filename) }}';" />
                         </figure>
+
                         <div class="card-body p-4">
                             <h3 id="card-title-{{ honor.id }}" class="card-title text-base lg:text-lg font-semibold truncate" title="{{ honor.name }}">{{ honor.name }}</h3>
                             <div class="text-sm text-base-content/80 space-y-1 mt-2">
@@ -395,8 +287,9 @@
                                 <p><span class="font-medium text-base-content/60">时间:</span> <span id="card-date-{{ honor.id }}">{{ honor.date }}</span></p>
                                 <p><span class="font-medium text-base-content/60">单位:</span> <span id="card-stamp-{{ honor.id }}" title="{{ honor.stamp }}">{{ honor.stamp | truncate(20) }}</span></p>
                             </div>
+
+                            {% if can_edit %}
                             <div class="card-actions justify-end mt-3 items-center space-x-2">
-                                {# 编辑按钮：通过 data-* 属性传递所有需要的数据 #}
                                 <button type="button" id="edit-btn-{{ honor.id }}" class="btn btn-xs sm:btn-sm btn-outline btn-primary" title="编辑"
                                         onclick="openEditModal(this)"
                                         data-id="{{ honor.id }}"
@@ -406,11 +299,11 @@
                                         data-date="{{ honor.date }}"
                                         data-stamp="{{ honor.stamp | escape }}"
                                         data-stamp-other="{{ honor.stamp_other | default('', true) | escape }}"
-                                        data-image-url="{{ url_for('uploaded_file_user', username=username, filename=honor.image_filename) }}">
+                                        data-image-url="{{ url_for('uploaded_file_user', username=view_username, filename=honor.image_filename) }}">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                                     <span class="hidden sm:inline ml-1">编辑</span>
                                 </button>
-                                {# 删除按钮：使用表单提交，并添加二次确认 #}
+
                                 <form method="post" action="{{ url_for('delete_honor', honor_id=honor.id) }}" onsubmit="return confirm('警告：您确定要永久删除 “{{ honor.name | escape | replace("'", "\\'") }}” 这条荣誉记录吗？\n\n此操作将同时删除关联的图片文件，且无法撤销！');" style="display: inline;">
                                     <button type="submit" class="btn btn-xs sm:btn-sm btn-outline btn-secondary" title="删除">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
@@ -418,11 +311,12 @@
                                     </button>
                                 </form>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}
             </div>
-            {# 当客户端筛选后无结果时显示的消息 #}
+
             <div id="no-honors-message" class="alert alert-warning mt-6 shadow-md hidden" role="alert">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 <span>在当前列表（{{ filter_text }}）中，未找到符合所选条件的荣誉记录。</span>
@@ -433,9 +327,9 @@
              <div class="alert alert-info mt-6 shadow-md">
                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                  {% if selected_date_filter != 'all' %}
-                    <span>在选定的时间范围（{{ filter_text }}）内没有荣誉记录。请尝试选择 <a href="{{ url_for('home', filter_date='all') }}" class="link link-primary">全部时间</a> 或 <a href="{{ url_for('add_honor') }}" class="link link-secondary">添加一条新荣誉</a>。</span>
+                    <span>在选定的时间范围（{{ filter_text }}）内没有荣誉记录。请尝试选择 <a href="{{ base_url }}?filter_date=all" class="link link-primary">全部时间</a>。</span>
                  {% else %}
-                    <span>您还没有添加任何荣誉记录。现在就去 <a href="{{ url_for('add_honor') }}" class="link link-primary">添加第一条</a> 吧！</span>
+                    <span>该教师还没有添加任何荣誉记录。{% if is_self_view %}<a href="{{ url_for('add_honor') }}" class="link link-primary">现在就去添加第一条</a>吧！{% endif %}</span>
                  {% endif %}
             </div>
         {% endif %}
@@ -443,31 +337,21 @@
 
 </div>
 
-{# ====================================================== #}
-{# ================= MODAL DEFINITIONS ================== #}
-{# ====================================================== #}
-
-{# --- 编辑荣誉 Modal --- #}
+{% if can_edit %}
 <dialog id="edit_honor_modal" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box relative">
-        {# Loading 遮罩层 #}
         <div id="edit_modal_loading" class="loading-overlay hidden">
             <span class="loading loading-spinner loading-lg text-primary"></span>
         </div>
-
         <div class="modal-content-grid">
-            {# 左侧图片展示 #}
             <div class="modal-image-container">
                 <img id="edit_modal_image" src="" alt="当前荣誉图片" />
                 <span class="text-xs text-base-content/60 mt-2">当前图片</span>
             </div>
-            {# 右侧编辑表单 #}
             <div class="modal-form-container">
                 <form id="edit_honor_form" class="space-y-3">
                     <h3 class="font-bold text-lg mb-3 text-center md:text-left">编辑荣誉信息</h3>
                     <input type="hidden" id="edit_honor_id" name="honor_id">
-
-                    {# 各个表单字段 #}
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_name"><span class="label-text font-medium">荣誉名称 <span class="text-error">*</span></span></label>
                         <input type="text" id="edit_honor_name" name="honor_name" class="input input-sm input-bordered w-full" required />
@@ -488,7 +372,7 @@
                     </div>
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_date"><span class="label-text font-medium">获得时间 <span class="text-error">*</span></span></label>
-                        <input type="date" id="edit_honor_date" name="honor_date" class="input input-sm input-bordered w-full" required max="{{ now().strftime('%Y-%m-%d') }}"/>
+                        <input type="date" id="edit_honor_date" name="honor_date" class="input input-sm input-bordered w-full" required max="{{ now.strftime('%Y-%m-%d') }}"/>
                     </div>
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_stamp"><span class="label-text font-medium">颁发单位 <span class="text-error">*</span></span></label>
@@ -504,10 +388,7 @@
                         <div id="edit-upload-status" class="label-text-alt text-xs mt-1 min-h-[1rem]"></div>
                         <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图。PDF文件将被自动转换为图片。</span></label>
                     </div>
-
-                    {# 错误信息显示区域 #}
                     <div id="edit_modal_error" class="text-error text-sm mt-2 hidden min-h-[1.25rem]"></div>
-                    {# 操作按钮 #}
                     <div class="modal-action mt-4 justify-end space-x-2">
                         <button type="button" class="btn btn-sm btn-ghost" onclick="closeEditModal()">取消</button>
                         <button type="submit" class="btn btn-sm btn-primary">确认修改</button>
@@ -517,71 +398,52 @@
         </div>
         <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="closeEditModal()">✕</button>
     </div>
-    {# 点击背景关闭 Modal #}
     <form method="dialog" class="modal-backdrop">
         <button type="button" onclick="closeEditModal()">close</button>
     </form>
 </dialog>
+{% endif %}
 
-
-
-
-{# --- 全局成功提示 Toast --- #}
 <div id="toast-success" class="toast toast-top toast-center hidden">
     <div class="alert alert-success shadow-lg">
         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span id="toast-success-message">操作成功！</span>
     </div>
 </div>
-
 {% endblock %}
 
 
-{# ====================================================== #}
-{# ================ JAVASCRIPT SECTION ================== #}
-{# ====================================================== #}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
 <script>
-    // 设置 pdf.js 的 workerSrc
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js`;
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-    //==========================================================
-    // 1. 全局 DOM 元素引用
-    //==========================================================
-
-    // --- 筛选相关 ---
+    // --- 1. DOM 元素引用 ---
     const honorsGrid = document.getElementById('honors-grid');
     const noHonorsMessage = document.getElementById('no-honors-message');
     const keywordSearchInput = document.getElementById('keyword-search-input');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
-
-    // 时间筛选 (Dropdown)
     const startDateInput = document.getElementById('start-date-input');
     const endDateInput = document.getElementById('end-date-input');
     const applyCustomDateBtn = document.getElementById('apply-custom-date-btn');
-
-    // 类型筛选 (Dropdown)
     const typeFilterBtnLabel = document.getElementById('type-filter-label');
     const typeCheckboxes = document.querySelectorAll('.honor-type-cb');
-
-    // 等级筛选 (Dropdown)
     const levelFilterBtnLabel = document.getElementById('level-filter-label');
     const levelCheckboxes = document.querySelectorAll('.honor-level-cb');
-
-    // --- 统计相关 ---
     const statsByTypeDiv = document.getElementById('stats-by-type');
     const statsByLevelDiv = document.getElementById('stats-by-level');
     const statsToggleTypeBtn = document.getElementById('stats-toggle-type');
     const statsToggleLevelBtn = document.getElementById('stats-toggle-level');
     const statsTotalCountType = document.getElementById('stats-total-count-type');
     const statsTotalCountLevel = document.getElementById('stats-total-count-level');
+    const successToast = document.getElementById('toast-success');
+    const successToastMessage = document.getElementById('toast-success-message');
 
-    // --- 个性签名相关 ---
+    {% if is_self_view %}
     const mottoDisplayArea = document.getElementById('motto-display-area');
     const mottoTextSpan = document.getElementById('motto-text');
     const mottoEditArea = document.getElementById('motto-edit-area');
@@ -590,8 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelMottoBtn = document.getElementById('cancel-motto-btn');
     const mottoErrorDiv = document.getElementById('motto-error');
     const saveMottoLoading = saveMottoBtn ? saveMottoBtn.querySelector('.loading') : null;
+    {% endif %}
 
-    // --- 编辑荣誉 Modal 相关 ---
+    {% if can_edit %}
     const editModal = document.getElementById('edit_honor_modal');
     const editForm = document.getElementById('edit_honor_form');
     const editModalError = document.getElementById('edit_modal_error');
@@ -606,41 +469,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const editHonorImageInput = document.getElementById('edit_honor_image_file');
     const editModalImage = document.getElementById('edit_modal_image');
     const editUploadStatus = document.getElementById('edit-upload-status');
+    {% endif %}
 
-    // --- 其他 UI 元素 ---
-    const successToast = document.getElementById('toast-success');
-    const successToastMessage = document.getElementById('toast-success-message');
+    // 【修改】获取 ECharts 容器
+    const timeSeriesChartDom = document.getElementById('time_series_chart');
 
-    //==========================================================
-    // 2. 函数定义
-    //==========================================================
+    // --- 2. 函数定义 ---
 
-    // --- 筛选核心逻辑 ---
-
-    /**
-     * 主函数：应用所有客户端筛选（关键词、类型、等级）并更新页面
-     */
+    // (客户端筛选函数)
     function applyAllClientFilters() {
         if (!honorsGrid) return;
-
         const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
         const selectedTypes = Array.from(typeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
         const selectedLevels = Array.from(levelCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-
         const honorCards = honorsGrid.querySelectorAll('.card');
         let visibleCount = 0;
         const visibleTypeCounts = {};
         const visibleLevelCounts = {};
-
         honorCards.forEach(card => {
             const honorName = card.dataset.name.toLowerCase();
             const cardType = card.dataset.type;
             const cardLevel = card.dataset.level;
-
             const nameMatch = !keyword || honorName.includes(keyword);
             const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(cardType);
             const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(cardLevel);
-
             if (nameMatch && typeMatch && levelMatch) {
                 card.style.display = '';
                 visibleCount++;
@@ -650,20 +502,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.style.display = 'none';
             }
         });
-        
         updateDynamicStats(visibleTypeCounts, visibleLevelCounts, visibleCount);
         updateNoHonorsMessage(visibleCount);
         updateFilterButtonLabel(typeFilterBtnLabel, '类型', selectedTypes.length);
         updateFilterButtonLabel(levelFilterBtnLabel, '等级', selectedLevels.length);
-
         localStorage.setItem('honorFilterKeyword', keyword);
         localStorage.setItem('honorFilterType', JSON.stringify(selectedTypes));
         localStorage.setItem('honorFilterLevel', JSON.stringify(selectedLevels));
     }
-
-    /**
-     * 更新筛选按钮的文本，例如 "筛选类型 (2)"
-     */
     function updateFilterButtonLabel(labelElement, prefix, count) {
         if (!labelElement) return;
         const button = labelElement.parentElement;
@@ -675,10 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
             button.classList.remove('btn-active', 'btn-primary');
         }
     }
-    
-    /**
-     * 根据可见卡片数量，切换“无结果”提示的显示状态
-     */
     function updateNoHonorsMessage(visibleCount) {
         if (!noHonorsMessage) return;
         const isFiltering = (keywordSearchInput && keywordSearchInput.value) ||
@@ -686,26 +528,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             Array.from(levelCheckboxes).some(cb => cb.checked);
         noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
     }
-    
-    /**
-     * 重置所有客户端筛选器（由“无结果”提示中的按钮调用）
-     */
     window.resetClientFilters = () => {
         if (keywordSearchInput) keywordSearchInput.value = "";
         typeCheckboxes.forEach(cb => cb.checked = false);
         levelCheckboxes.forEach(cb => cb.checked = false);
         applyAllClientFilters();
     };
-
-    /**
-     * 从 localStorage 加载并应用之前保存的筛选状态
-     */
     function applySavedFilters() {
         const savedKeyword = localStorage.getItem('honorFilterKeyword');
         if (keywordSearchInput && savedKeyword) {
             keywordSearchInput.value = savedKeyword;
         }
-        
         try {
             const savedTypes = JSON.parse(localStorage.getItem('honorFilterType') || '[]');
             if (savedTypes.length > 0) {
@@ -714,7 +547,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         } catch (e) { localStorage.removeItem('honorFilterType'); }
-
         try {
             const savedLevels = JSON.parse(localStorage.getItem('honorFilterLevel') || '[]');
             if (savedLevels.length > 0) {
@@ -725,16 +557,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { localStorage.removeItem('honorFilterLevel'); }
     }
 
-
-    // --- 统计面板相关函数 ---
-
-    /**
-     * 更新统计面板的数字
-     */
+    // (统计面板函数)
     function updateDynamicStats(typeCounts, levelCounts, totalCount) {
         if (statsTotalCountType) statsTotalCountType.textContent = totalCount;
         if (statsTotalCountLevel) statsTotalCountLevel.textContent = totalCount;
-
         document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(card => {
             const typeName = card.dataset.statType;
             const countEl = card.querySelector('.stat-count');
@@ -745,7 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 countEl.classList.toggle('text-base-content/30', count === 0);
             }
         });
-
         document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(card => {
             const levelName = card.dataset.statLevel;
             const countEl = card.querySelector('.stat-count');
@@ -757,10 +582,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    /**
-     * 切换统计视图（按类型/按等级）
-     */
     window.switchStatsView = (viewType) => {
         localStorage.setItem('statsView', viewType);
         if (!statsByTypeDiv || !statsByLevelDiv || !statsToggleTypeBtn || !statsToggleLevelBtn) return;
@@ -770,10 +591,6 @@ document.addEventListener('DOMContentLoaded', () => {
         statsToggleTypeBtn.classList.toggle('btn-active', isTypeView);
         statsToggleLevelBtn.classList.toggle('btn-active', !isTypeView);
     };
-
-    /**
-     * 应用本地存储的统计视图偏好
-     */
     function applySavedStatsView() {
         const savedView = localStorage.getItem('statsView');
         if (savedView === 'level') {
@@ -783,9 +600,104 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // (Toast 和 Preload)
+    const preloadedImages = new Set();
+    window.preloadImage = (url) => {
+        if (!preloadedImages.has(url)) {
+            const img = new Image();
+            img.src = url;
+            preloadedImages.add(url);
+        }
+    }
+    const showSuccessToast = (message) => {
+        if (!successToast || !successToastMessage) return;
+        successToastMessage.textContent = message;
+        successToast.classList.remove('hidden');
+        setTimeout(() => successToast.classList.add('hidden'), 3000);
+    };
 
-    // --- 个性签名相关函数 ---
-    
+    // (PDF 处理)
+    async function handleFileSelect(event, fileInputElement, statusElement) {
+        statusElement.textContent = '';
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.type === 'application/pdf') {
+            statusElement.textContent = '正在处理PDF文件，请稍候...';
+            statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
+            try {
+                const imageFile = await convertPdfToImage(file);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(imageFile);
+                fileInputElement.files = dataTransfer.files;
+                statusElement.textContent = '✅ PDF已成功转换为图片，可直接提交。';
+                statusElement.className = 'label-text-alt text-xs mt-1 text-success';
+            } catch (error) {
+                console.error('PDF conversion failed:', error);
+                statusElement.textContent = `❌ PDF处理失败: ${error.message}.`;
+                statusElement.className = 'label-text-alt text-xs mt-1 text-error';
+                fileInputElement.value = '';
+            }
+        }
+    }
+    function convertPdfToImage(pdfFile) {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                pdfjsLib.getDocument(typedarray).promise.then(pdf => pdf.getPage(1))
+                .then(page => {
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale: scale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    const renderContext = { canvasContext: context, viewport: viewport };
+                    return page.render(renderContext).promise.then(() => canvas);
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
+                        const imageFile = new File([blob], newFileName, { type: 'image/jpeg', lastModified: Date.now() });
+                        resolve(imageFile);
+                    }, 'image/jpeg', 0.9);
+                }).catch(error => reject(error));
+            };
+            fileReader.onerror = (error) => reject(error);
+            fileReader.readAsArrayBuffer(pdfFile);
+        });
+    }
+
+    // (Modal 和 个性签名)
+    {% if can_edit %}
+    window.openEditModal = (button) => {
+        if (!editModal || !editForm) return alert("编辑窗口加载失败！");
+        editForm.reset();
+        if (editUploadStatus) {
+            editUploadStatus.textContent = '';
+            editUploadStatus.className = 'label-text-alt text-xs mt-1 min-h-[1rem]';
+        }
+        if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
+        if (editModalLoading) editModalLoading.classList.add('hidden');
+        const data = button.dataset;
+        if(editHonorIdInput) editHonorIdInput.value = data.id;
+        if(editHonorNameInput) editHonorNameInput.value = data.name;
+        if(editHonorTypeSelect) editHonorTypeSelect.value = data.type;
+        if(editHonorLevelSelect) editHonorLevelSelect.value = data.level;
+        if(editHonorDateInput) editHonorDateInput.value = data.date;
+        if(editHonorStampInput) editHonorStampInput.value = data.stamp;
+        if(editHonorStampOtherInput) editHonorStampOtherInput.value = data.stampOther;
+        if(editModalImage) {
+            editModalImage.src = data.imageUrl;
+            editModalImage.alt = `当前 ${data.name} 的图片`;
+        }
+        editModal.showModal();
+    };
+    window.closeEditModal = () => {
+        if (editModal) editModal.close();
+    };
+    {% endif %}
+
+    {% if is_self_view %}
     const enterEditMottoMode = () => {
         if (!mottoDisplayArea || !mottoEditArea || !mottoInput) return;
         mottoDisplayArea.classList.add('hidden');
@@ -795,7 +707,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mottoInput.focus();
         if(mottoErrorDiv) mottoErrorDiv.textContent = '';
     };
-
     const exitEditMottoMode = () => {
         if (!mottoDisplayArea || !mottoEditArea) return;
         mottoEditArea.classList.add('hidden');
@@ -804,7 +715,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saveMottoLoading) saveMottoLoading.classList.add('hidden');
         if (saveMottoBtn) saveMottoBtn.disabled = false;
     };
-
     const saveMotto = async () => {
         if (!mottoInput || !saveMottoBtn || !mottoErrorDiv) return;
         const newMotto = mottoInput.value.trim();
@@ -836,142 +746,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (saveMottoBtn) saveMottoBtn.disabled = false;
         }
     };
+    {% endif %}
 
+    // --- 3. 事件绑定 ---
 
-    // --- 文件处理与 Modal 相关函数 ---
-    
-    const preloadedImages = new Set();
-    window.preloadImage = (url) => {
-        if (!preloadedImages.has(url)) {
-            const img = new Image();
-            img.src = url;
-            preloadedImages.add(url);
-        }
+    // (客户端筛选)
+    if(typeCheckboxes) {
+        typeCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
     }
-
-    async function handleFileSelect(event, fileInputElement, statusElement) {
-        statusElement.textContent = '';
-        const file = event.target.files[0];
-        if (!file) return;
-
-        if (file.type === 'application/pdf') {
-            statusElement.textContent = '正在处理PDF文件，请稍候...';
-            statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
-            try {
-                const imageFile = await convertPdfToImage(file);
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(imageFile);
-                fileInputElement.files = dataTransfer.files;
-                statusElement.textContent = '✅ PDF已成功转换为图片，可直接提交。';
-                statusElement.className = 'label-text-alt text-xs mt-1 text-success';
-            } catch (error) {
-                console.error('PDF conversion failed:', error);
-                statusElement.textContent = `❌ PDF处理失败: ${error.message}.`;
-                statusElement.className = 'label-text-alt text-xs mt-1 text-error';
-                fileInputElement.value = ''; 
-            }
-        }
+    if(levelCheckboxes) {
+        levelCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
     }
-
-    function convertPdfToImage(pdfFile) {
-        return new Promise((resolve, reject) => {
-            const fileReader = new FileReader();
-            fileReader.onload = function() {
-                const typedarray = new Uint8Array(this.result);
-                pdfjsLib.getDocument(typedarray).promise.then(pdf => pdf.getPage(1))
-                .then(page => {
-                    const scale = 1.5;
-                    const viewport = page.getViewport({ scale: scale });
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    const renderContext = { canvasContext: context, viewport: viewport };
-                    return page.render(renderContext).promise.then(() => canvas);
-                }).then(canvas => {
-                    canvas.toBlob(blob => {
-                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
-                        const imageFile = new File([blob], newFileName, { type: 'image/jpeg', lastModified: Date.now() });
-                        resolve(imageFile);
-                    }, 'image/jpeg', 0.9);
-                }).catch(error => reject(error));
-            };
-            fileReader.onerror = (error) => reject(error);
-            fileReader.readAsArrayBuffer(pdfFile);
-        });
-    }
-
-    window.openEditModal = (button) => {
-        if (!editModal || !editForm) return alert("编辑窗口加载失败！");
-        editForm.reset();
-        
-        if (editUploadStatus) {
-            editUploadStatus.textContent = '';
-            editUploadStatus.className = 'label-text-alt text-xs mt-1 min-h-[1rem]';
-        }
-        if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
-        if (editModalLoading) editModalLoading.classList.add('hidden');
-        
-        const data = button.dataset;
-        if(editHonorIdInput) editHonorIdInput.value = data.id;
-        if(editHonorNameInput) editHonorNameInput.value = data.name;
-        if(editHonorTypeSelect) editHonorTypeSelect.value = data.type;
-        if(editHonorLevelSelect) editHonorLevelSelect.value = data.level;
-        if(editHonorDateInput) editHonorDateInput.value = data.date;
-        if(editHonorStampInput) editHonorStampInput.value = data.stamp;
-        if(editHonorStampOtherInput) editHonorStampOtherInput.value = data.stampOther;
-        if(editModalImage) {
-            editModalImage.src = data.imageUrl;
-            editModalImage.alt = `当前 ${data.name} 的图片`;
-        }
-        editModal.showModal();
-    };
-
-    window.closeEditModal = () => {
-        if (editModal) editModal.close();
-    };
-
-    window.showImageModal = (imageUrl, imageTitle) => {
-        const imageModal = document.getElementById('image_modal');
-        if (typeof image_modal === 'undefined' || !image_modal) {
-             window.open(imageUrl, '_blank');
-             return;
-        }
-        const modalImgEl = document.getElementById('modal_image');
-        const modalTitleEl = document.getElementById('modal_title');
-        if (modalImgEl) modalImgEl.src = imageUrl;
-        if (modalTitleEl) modalTitleEl.textContent = imageTitle || '图片详情';
-        image_modal.showModal();
-    };
-    
-    const showSuccessToast = (message) => {
-        if (!successToast || !successToastMessage) return;
-        successToastMessage.textContent = message;
-        successToast.classList.remove('hidden');
-        setTimeout(() => successToast.classList.add('hidden'), 3000);
-    };
-
-
-    //==========================================================
-    // 3. 事件绑定与初始化调用
-    //==========================================================
-
-    // --- 筛选事件绑定 ---
-    typeCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
-    levelCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
     if (keywordSearchInput) {
         keywordSearchInput.addEventListener('input', applyAllClientFilters);
     }
+
+    // (服务端筛选)
     if (resetFiltersBtn) {
         resetFiltersBtn.addEventListener('click', () => {
-            localStorage.removeItem('honorFilterKeyword');
-            localStorage.removeItem('honorFilterType');
-            localStorage.removeItem('honorFilterLevel');
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('filter_date', 'all');
-            currentUrl.searchParams.delete('start_date');
-            currentUrl.searchParams.delete('end_date');
-            window.location.href = currentUrl.toString();
+             window.location.href = resetFiltersBtn.dataset.baseUrl || "{{ url_for('home') }}";
         });
     }
     if (applyCustomDateBtn) {
@@ -994,7 +787,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 个性签名事件绑定 ---
+    // (个性签名事件)
+    {% if is_self_view %}
     if (mottoDisplayArea) mottoDisplayArea.addEventListener('click', enterEditMottoMode);
     if (cancelMottoBtn) cancelMottoBtn.addEventListener('click', exitEditMottoMode);
     if (saveMottoBtn) saveMottoBtn.addEventListener('click', saveMotto);
@@ -1004,8 +798,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Escape') exitEditMottoMode();
         });
     }
+    {% endif %}
 
-    // --- 编辑 Modal 事件绑定 ---
+    // (编辑 Modal 事件)
+    {% if can_edit %}
     if (editHonorImageInput && editUploadStatus) {
         editHonorImageInput.addEventListener('change', (event) => {
             handleFileSelect(event, editHonorImageInput, editUploadStatus);
@@ -1018,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!honorId) return;
             if (editModalLoading) editModalLoading.classList.remove('hidden');
             if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
-            
+
             const formData = new FormData(editForm);
             try {
                 const response = await fetch(`/edit_honor/${honorId}`, {
@@ -1049,11 +845,96 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    {% endif %}
 
-    // --- 页面加载时初始化 ---
+    // --- 4. 页面加载时初始化 ---
     applySavedStatsView();
     applySavedFilters();
-    applyAllClientFilters(); // 初始加载时应用一次，确保标签和统计正确
+    applyAllClientFilters();
+
+    // --- 【修改】ECharts 绘图 ---
+    if (timeSeriesChartDom) {
+        // 1. 从后端获取数据
+        const timeSeriesData = {{ monthly_timeseries_data | tojson | safe }};
+
+        if (timeSeriesData && timeSeriesData.length > 0) {
+            // 2. 初始化 ECharts
+            const myChart = echarts.init(timeSeriesChartDom);
+
+            // 3. 定义图表配置
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow' // 鼠标悬停时显示阴影
+                    },
+                    formatter: function (params) {
+                        // params[0].value[0] 是 'YYYY-MM-DD'
+                        // params[0].value[1] 是 count
+                        const date = new Date(params[0].value[0]);
+                        const dateString = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+                        return `${dateString}<br/><strong>${params[0].value[1]}</strong> 项荣誉`;
+                    }
+                },
+                // 留出底部空间给缩放条
+                grid: {
+                    bottom: '100px'
+                },
+                xAxis: {
+                    type: 'time',
+                    name: '时间'
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '荣誉数量',
+                    minInterval: 1 // 确保 Y 轴总是整数
+                },
+                // 【核心】缩放功能
+                dataZoom: [
+                    {
+                        type: 'inside', // 允许鼠标滚轮缩放
+                        start: 0,
+                        end: 100
+                    },
+                    {
+                        type: 'slider', // 显示底部的滑块
+                        start: 0,
+                        end: 100,
+                        bottom: 10 // 滑块位置
+                    }
+                ],
+                series: [{
+                    name: '荣誉数量',
+                    type: 'bar',
+                    data: timeSeriesData,
+                    // 平滑显示, 自动聚合
+                    sampling: 'lttb',
+                    // 设置柱状图颜色
+                    itemStyle: {
+                        color: '#65c3c8' // Cupcake 主题色
+                    },
+                    // 鼠标悬停时高亮
+                    emphasis: {
+                        focus: 'series',
+                        itemStyle: {
+                            color: '#ef9fbc' // Cupcake 次要色
+                        }
+                    },
+                }]
+            };
+
+            // 4. 应用配置
+            myChart.setOption(option);
+
+            // 5. 监听窗口大小变化
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
+        } else {
+             timeSeriesChartDom.parentElement.innerHTML = '<div class="text-center opacity-60">暂无荣誉数据可供分析</div>';
+        }
+    }
+
 });
 </script>
 {% endblock %}

@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+
+{% block title %}教师总览{% endblock %}
+
+{% block head_extra %}
+<style>
+    .teacher-card {
+        transition: all 0.2s ease-in-out;
+        border: 1px solid transparent;
+    }
+    .teacher-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        border-color: hsl(var(--p) / 0.3);
+    }
+    /* 筛选按钮的激活样式 */
+    .filter-btn.btn-active {
+        background-color: hsl(var(--p));
+        color: hsl(var(--pc));
+        border-color: hsl(var(--p));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 prose">教师总览</h1>
+
+<div class="mb-6 bg-base-200 p-3 rounded-lg flex flex-wrap gap-2">
+    <button class="btn btn-sm filter-btn btn-active" data-major="all">全部专业</button>
+    {% for major in majors %}
+        {% if major in users_by_major %}
+        <button class="btn btn-sm btn-ghost filter-btn" data-major="{{ major | escape }}">
+            {{ major }}
+        </button>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<div id="teachers-grid" class="space-y-8">
+    {% for major_name in sorted_major_keys %}
+    <section class="major-group" data-major-group="{{ major_name | escape }}">
+        <h2 class="text-2xl font-semibold divider divider-start">{{ major_name }}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
+
+            {% for user in users_by_major[major_name] %}
+            <a href="{{ url_for('view_user_dashboard', username_to_view=user.username) }}" class="card bg-base-100 shadow-md teacher-card">
+                <div class="card-body">
+                    <div class="flex items-center gap-4">
+                        <div class="avatar">
+                            <div class="w-16 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+                                <img src="https://ui-avatars.com/api/?name={{ user.truename[0] if user.truename else 'U' }}&background=random&color=fff" alt="{{ user.truename }} avatar" />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="card-title text-lg">{{ user.truename }}</h3>
+                            <p class="text-sm text-base-content/70">{{ user.username }}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-base-content/80 mt-4 h-10 overflow-hidden">
+                        {% if user.motto %}"{{ user.motto | truncate(40) }}"{% else %}<span class="italic opacity-50">暂无签名</span>{% endif %}
+                    </p>
+                </div>
+            </a>
+            {% endfor %}
+
+        </div>
+    </section>
+    {% endfor %}
+
+    <div id="no-results-message" class="alert alert-info hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>在所选专业下未找到教师。</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const teacherGroups = document.querySelectorAll('.major-group');
+    const noResultsMessage = document.getElementById('no-results-message');
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // 1. Get filter
+            const selectedMajor = button.dataset.major;
+
+            // 2. Update button active state
+            filterButtons.forEach(btn => btn.classList.remove('btn-active'));
+            button.classList.add('btn-active');
+
+            let visibleGroups = 0;
+
+            // 3. Filter teacher groups
+            teacherGroups.forEach(group => {
+                const groupMajor = group.dataset.majorGroup;
+                if (selectedMajor === 'all' || groupMajor === selectedMajor) {
+                    group.style.display = 'block';
+                    visibleGroups++;
+                } else {
+                    group.style.display = 'none';
+                }
+            });
+
+            // 4. Show 'no results' message if needed
+            noResultsMessage.classList.toggle('hidden', visibleGroups > 0);
+        });
+    });
+});
+</script>
+{% endblock %}

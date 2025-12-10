@@ -4,145 +4,97 @@
 
 {% block head_extra %}
 <style>
-    /* 使用 ::after 伪元素为带 required 类的 label 添加星号 */
-    label.required {
+    /* 为必填项的 <label> 添加星号 */
+    .label.required::after {
       content: " *";
       color: #ff0000;
       font-weight: bold;
     }
-
-
-
-
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6 text-center prose">添加新荣誉记录</h1>
+<h1 class="text-3xl font-bold mb-6 prose">添加新荣誉记录</h1>
 
-    {% if error %}
-    <div role="alert" class="alert alert-error mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>错误！{{ error }}</span>
-    </div>
-    {% endif %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <form action="{{ url_for('add_honor') }}" method="post" enctype="multipart/form-data" class="bg-base-100 p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-        
-        {# --- 所有角色可见：选择专业 --- #}
-        <div class="form-control w-full">
-            <label class="label required" for="major_select">
-                <span class="label-text font-medium">所属专业</span>
-            </label>
-            
-            {#
-            - 对所有用户都显示<select>元素。
-            - 仅当角色为'admin'时，该下拉框才可用。
-            - name属性也只给'admin'，其他角色通过下面的hidden input提交数据。
-            #}
-            <select id="major_select"
-                    class="select select-bordered w-full"
-                    required
-                    {% if session.role != 'admin' %}disabled{% endif %}
-                    {% if session.role == 'admin' %}name="major"{% endif %}>
+    <form action="{{ url_for('add_honor') }}" method="post" enctype="multipart/form-data"
+          class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
 
-                {% if session.role == 'admin' %}
-                    {# --- Admin 的逻辑：可以选择任意专业 --- #}
-                    <option disabled selected value="">请选择专业</option>
-                    {% for major in all_majors %}
-                        <option value="{{ major }}">{{ major }}</option>
-                    {% endfor %}
-                
-                {% else %}
-                    {# --- 其他角色 (major_admin, user) 的逻辑：显示自己的专业 --- #}
-                    {# 显示当前用户所属的专业，并且是唯一选项 #}
-                    {# 注意: 请确保 session.major 变量在你的后端是可用的 #}
-                    <option value="{{ session.major }}" selected>{{ session.major }}</option>
-                {% endif %}
-            </select>
-        </div>
+        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 p-4 bg-base-200 rounded-lg">
 
-        {# 
-        - 对于非 'admin' 的用户
-        - 添加一个隐藏的 input 来提交他们的专业名称。
-        - 这能确保后端总能接收到 major 字段，无需修改后端代码。
-        #}
-        {% if session.role != 'admin' %}
-        <input type="hidden" name="major" value="{{ session.major }}">
-        {% endif %}
+            <div class="form-control w-full">
+                <label class="label required" for="major_select">
+                    <span class="label-text font-medium">所属专业</span>
+                </label>
+                <select id="major_select"
+                        class="select select-bordered w-full"
+                        required
+                        {% if session.role != 'admin' %}disabled{% endif %}
+                        {% if session.role == 'admin' %}name="major"{% endif %}>
 
-
-        {# --- 所有角色可见：选择教师 --- #}
-        <div class="form-control w-full">
-            <label class="label required" for="teacher_select">
-                <span class="label-text font-medium">
-                    所属教师
-                    {# 如果是专业负责人，显示其管理的专业名称 #}
-                    {% if session.role == 'major_admin' and user_major %}
-                        <span class="text-xs opacity-70">({{ user_major }})</span>
-                    {% endif %}
-                </span>
-            </label>
-            
-            {# 
-            - 对所有用户都显示<select>元素。
-            - 当角色为'user'时，添加disabled属性。
-            - name属性只在非'user'角色时添加，因为disabled的select可能不会提交数据。
-                对于'user'，我们下面会用一个hidden input来提交数据。
-            #}
-            <select id="teacher_select" 
-                    class="select select-bordered w-full" 
-                    required
-                    {% if session.role not in ['admin', 'major_admin'] %}disabled{% endif %}
-                    {% if session.role in ['admin', 'major_admin'] %}name="teacher_username"{% endif %}>
-                
-                {% if session.role in ['admin', 'major_admin'] %}
-                    {# --- Admin 和 Major_admin 的逻辑 --- #}
-                    <option disabled selected value="">
-                        {% if session.role == 'admin' %}
-                            请先选择专业
-                        {% else %}
-                            请选择教师
-                        {% endif %}
-                    </option>
-                    
-                    {# 如果是专业负责人，在页面加载时直接填充其管辖的教师列表 #}
-                    {% if session.role == 'major_admin' %}
-                        {% for user in major_admin_users %}
-                            <option value="{{ user.username }}">{{ user.truename }}</option>
+                    {% if session.role == 'admin' %}
+                        <option disabled selected value="">请选择专业</option>
+                        {% for major in all_majors %}
+                            <option value="{{ major }}">{{ major }}</option>
                         {% endfor %}
+                    {% else %}
+                        <option value="{{ session.major }}" selected>{{ session.major }}</option>
                     {% endif %}
+                </select>
+            </div>
+            {% if session.role != 'admin' %}
+            <input type="hidden" name="major" value="{{ session.major }}">
+            {% endif %}
 
-                {% else %}
-                    {# --- 普通 User 的逻辑 --- #}
-                    {# 显示当前用户名，并且是唯一选项 #}
-                    <option value="{{ session.username }}" selected>{{ session.truename or session.username }}</option>
-                {% endif %}
-            </select>
+            <div class="form-control w-full">
+                <label class="label required" for="teacher_select">
+                    <span class="label-text font-medium">所属教师</span>
+                </label>
+                <select id="teacher_select"
+                        class="select select-bordered w-full"
+                        required
+                        {% if session.role not in ['admin', 'major_admin'] %}disabled{% endif %}
+                        {% if session.role in ['admin', 'major_admin'] %}name="teacher_username"{% endif %}>
+
+                    {% if session.role in ['admin', 'major_admin'] %}
+                        <option disabled selected value="">
+                            {% if session.role == 'admin' %}请先选择专业{% else %}请选择教师{% endif %}
+                        </option>
+                        {% if session.role == 'major_admin' %}
+                            {% for user in major_admin_users %}
+                                <option value="{{ user.username }}">{{ user.truename }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    {% else %}
+                        <option value="{{ session.username }}" selected>{{ session.truename or session.username }}</option>
+                    {% endif %}
+                </select>
+            </div>
+            {% if session.role not in ['admin', 'major_admin'] %}
+            <input type="hidden" name="teacher_username" value="{{ session.username }}">
+            {% endif %}
         </div>
 
-        {# 
-        - 对于非 admin/major_admin 的用户 (例如 'user')
-        - 添加一个隐藏的 input 来提交他们的'username'。
-        - 这是最可靠的方式，因为浏览器对于是否提交disabled的select元素值的行为不一。
-        - 这样可以确保后端总能接收到 teacher_username 字段。
-        #}
-        {% if session.role not in ['admin', 'major_admin'] %}
-        <input type="hidden" name="teacher_username" value="{{ session.username }}">
-        {% endif %}
-
-
-        <div class="form-control w-full">
+        <div class="form-control w-full md:col-span-2 relative">
             <label class="label required" for="honor_name">
-                <span class="label-text font-medium">荣誉名称</span><span style="color:#ff0000;">*</span>
+                <span class="label-text font-medium">荣誉名称</span>
             </label>
             <input type="text" id="honor_name" name="honor_name" value="{{ form_data.honor_name if form_data else '' }}" placeholder="例如：全国大学生数学建模竞赛一等奖" class="input input-bordered w-full" required />
+
+            <div id="duplicate-alert" class="alert alert-warning shadow-lg p-3 absolute z-10 top-full mt-1 w-full hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <div>
+                    <h3 class="font-bold text-sm">发现相似荣誉:</h3>
+                    <ul id="warning-matches-list" class="list-disc list-inside text-xs mt-1 space-y-1">
+                        </ul>
+                </div>
+            </div>
         </div>
 
         <div class="form-control w-full">
             <label class="label required" for="honor_type">
-                <span class="label-text font-medium">荣誉类型</span><span style="color:#ff0000;">*</span>
+                <span class="label-text font-medium">荣誉类型</span>
             </label>
             <select id="honor_type" name="honor_type" class="select select-bordered w-full" required>
                 <option disabled {% if not form_data or not form_data.honor_type %}selected{% endif %} value="">请选择类型</option>
@@ -154,7 +106,7 @@
 
         <div class="form-control w-full">
             <label class="label required" for="honor_level">
-                <span class="label-text font-medium">荣誉等级</span><span style="color:#ff0000;">*</span>
+                <span class="label-text font-medium">荣誉等级</span>
             </label>
             <select id="honor_level" name="honor_level" class="select select-bordered w-full" required>
                 <option disabled {% if not form_data or not form_data.honor_level %}selected{% endif %} value="">请选择等级</option>
@@ -165,29 +117,29 @@
         </div>
 
         <div class="form-control w-full">
-            <label class="label required" for="honor_date">
-                <span class="label-text font-medium">获得时间</span><span style="color:#ff0000;">*</span>
-            </label>
-            <input type="date" id="honor_date" name="honor_date" value="{{ form_data.honor_date if form_data else '' }}" class="input input-bordered w-full" required max="{{ now().strftime('%Y-%m-%d') }}" />
-        </div>
-
-        <div class="form-control w-full">
             <label class="label required" for="honor_stamp">
-                <span class="label-text font-medium">敲章/颁发单位1</span><span style="color:#ff0000;">*</span>
+                <span class="label-text font-medium">敲章/颁发单位1</span>
             </label>
             <input type="text" id="honor_stamp" name="honor_stamp" value="{{ form_data.honor_stamp if form_data else '' }}" placeholder="例如：教育部、XX大学" class="input input-bordered w-full" required />
         </div>
 
         <div class="form-control w-full">
             <label class="label" for="honor_stamp_other">
-                <span class="label-text font-medium">敲章/颁发单位2</span><span style="color:darkgrey;">*</span>
+                <span class="label-text font-medium">敲章/颁发单位2 (可选)</span>
             </label>
             <input type="text" id="honor_stamp_other" name="honor_stamp_other" value="{{ form_data.honor_other if form_data else '' }}" placeholder="例如：XX省教育厅" class="input input-bordered w-full" />
         </div>
 
+        <div class="form-control w-full">
+            <label class="label required" for="honor_date">
+                <span class="label-text font-medium">获得时间</span>
+            </label>
+            <input type="date" id="honor_date" name="honor_date" value="{{ form_data.honor_date if form_data else '' }}" class="input input-bordered w-full" required max="{{ now.strftime('%Y-%m-%d') }}" />
+        </div>
+
         <div class="form-control w-full md:col-span-2">
             <label class="label required" for="honor_image_upload">
-                <span class="label-text font-medium">上传证明文件</span><span style="color:#ff0000;">*</span>
+                <span class="label-text font-medium">上传证明文件</span>
             </label>
             <input type="file" id="honor_image_upload" name="honor_image" class="file-input file-input-bordered file-input-primary w-full" accept=".png,.jpg,.jpeg,.gif,.pdf" required />
             <label class="label">
@@ -200,25 +152,72 @@
             <a href="{{ url_for('home') }}" class="btn btn-ghost mr-2">返回</a>
             <button type="submit" class="btn btn-primary">确认添加</button>
         </div>
-
     </form>
+
+    <div class="lg:col-span-1 space-y-6">
+
+        <div id="file-preview-card" class="card bg-base-100 shadow-xl hidden">
+            <div class="card-body p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="card-title text-base">文件预览</h2>
+                    <button id="close-preview-btn" type="button" class="btn btn-xs btn-ghost btn-circle" title="取消上传">✕</button>
+                </div>
+                <figure id="file-preview-figure" class="rounded-lg bg-base-200 cursor-pointer" title="点击放大预览">
+                    <img id="file-preview-image" src="" alt="File Preview" class="max-h-60 w-full object-contain rounded-lg" />
+                </figure>
+                <p id="file-preview-name" class="text-xs text-center mt-2 truncate"></p>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title" id="recent-honors-title">我最近添加的荣誉</h2>
+
+                <div id="recent-honors-spinner" class="text-center p-4 hidden">
+                    <span class="loading loading-spinner loading-md"></span>
+                </div>
+
+                <div id="recent-honors-container" class="space-y-4">
+                    {% if recent_honors %}
+                        {% for honor in recent_honors %}
+                        <div class="flex items-center gap-3">
+                            <div class="avatar">
+                                <div class="w-12 h-12 rounded bg-base-200">
+                                    <img src="{{ url_for('uploaded_file_user', username=session.username, filename=honor.thumb_filename) }}"
+                                         alt="{{ honor.name }} 缩略图"
+                                         class="object-cover"
+                                         onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\"text-xs text-base-content/50 p-1\">无图</span>';" />
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate" title="{{ honor.name }}">{{ honor.name }}</p>
+                                <p class="text-xs text-base-content/60">{{ honor.date }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-base-content/60 italic">您（{{ session.truename }}）还没有添加过任何荣誉。</p>
+                    {% endif %}
+                </div>
+                <div class="card-actions justify-end mt-4">
+                    </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
 <script>
-// 设置 workerSrc 以确保 pdf.js 能正常工作
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
 }
 </script>
-
 <script>
 /**
- * 【主表单功能】使用 pdf.js 将 PDF 文件的第一页转换为一个图片 File 对象，用于表单提交
- * @param {File} pdfFile - 用户在主表单中选择的PDF文件
- * @returns {Promise<File>} - 返回一个解析为JPG图片文件的Promise
+ * PDF 转换 (返回 imageFile 和 dataURL)
  */
 function convertPdfToImageForSubmission(pdfFile) {
     return new Promise((resolve, reject) => {
@@ -239,13 +238,14 @@ function convertPdfToImageForSubmission(pdfFile) {
                     viewport: viewport
                 };
                 page.render(renderContext).promise.then(() => {
+                    const dataURL = canvas.toDataURL('image/jpeg', 0.9);
                     canvas.toBlob(blob => {
                         const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
                         const imageFile = new File([blob], newFileName, {
                             type: 'image/jpeg',
                             lastModified: Date.now()
                         });
-                        resolve(imageFile);
+                        resolve({ imageFile: imageFile, dataURL: dataURL });
                     }, 'image/jpeg', 0.9);
                 });
             }).catch(error => {
@@ -259,81 +259,266 @@ function convertPdfToImageForSubmission(pdfFile) {
 }
 
 /**
- * 【主表单功能】处理主表单文件输入事件，如果是PDF则进行转换
+ * 文件选择处理 (带预览和点击放大)
  */
-async function handleSubmissionFileSelect(event, fileInputElement, statusElement) {
+async function handleSubmissionFileSelect(
+    event,
+    fileInputElement,
+    statusElement,
+    previewCard,
+    previewImg,
+    previewName,
+    previewFigure
+) {
     statusElement.textContent = '';
+    previewFigure.onclick = null;
     const file = event.target.files[0];
-    if (!file) return;
+
+    if (!file) {
+        previewCard.classList.add('hidden');
+        statusElement.textContent = '已取消选择。';
+        return;
+    }
 
     if (file.type === 'application/pdf') {
         statusElement.textContent = '正在转换PDF为图片...';
         statusElement.style.color = 'hsl(var(--p))';
         try {
-            const imageFile = await convertPdfToImageForSubmission(file);
+            const { imageFile, dataURL } = await convertPdfToImageForSubmission(file);
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(imageFile);
             fileInputElement.files = dataTransfer.files;
             statusElement.textContent = '✅ PDF已转换为图片。';
             statusElement.style.color = 'hsl(var(--su))';
+
+            previewImg.src = dataURL;
+            const previewTitle = file.name + " (封面预览)";
+            previewName.textContent = previewTitle;
+            previewCard.classList.remove('hidden');
+            previewFigure.onclick = () => window.showImageModal(dataURL, previewTitle);
+
         } catch (error) {
             statusElement.textContent = `❌ ${error.message}`;
             statusElement.style.color = 'hsl(var(--er))';
             fileInputElement.value = '';
+            previewCard.classList.add('hidden');
         }
+
+    } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataURL = e.target.result;
+            statusElement.textContent = '✅ 图片文件已选中。';
+            statusElement.style.color = 'hsl(var(--su))';
+            previewImg.src = dataURL;
+            const previewTitle = file.name;
+            previewName.textContent = previewTitle;
+            previewCard.classList.remove('hidden');
+            previewFigure.onclick = () => window.showImageModal(dataURL, previewTitle);
+        };
+        reader.readAsDataURL(file);
+
+    } else {
+        statusElement.textContent = `❌ 不支持的文件类型 (仅限 .pdf, .jpg, .png)。`;
+        statusElement.style.color = 'hsl(var(--er))';
+        fileInputElement.value = '';
+        previewCard.classList.add('hidden');
     }
 }
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // ==========================================================
-    // 主表单文件上传预览逻辑的事件绑定
-    // ==========================================================
+
+    // --- 1. 获取所有需要的 DOM 元素 ---
+
+    // (文件上传/预览)
     const submissionFileInput = document.getElementById('honor_image_upload');
     const submissionStatusDiv = document.getElementById('upload-status');
+    const filePreviewCard = document.getElementById('file-preview-card');
+    const filePreviewImage = document.getElementById('file-preview-image');
+    const filePreviewName = document.getElementById('file-preview-name');
+    const filePreviewFigure = document.getElementById('file-preview-figure');
+    const closePreviewBtn = document.getElementById('close-preview-btn');
 
-    if (submissionFileInput && submissionStatusDiv) {
+    // (AJAX 查重)
+    const honorNameInput = document.getElementById('honor_name');
+    const warningCard = document.getElementById('duplicate-alert');
+    const warningList = document.getElementById('warning-matches-list');
+
+    // (Admin 级联 和 动态卡片)
+    const teacherSelect = document.getElementById('teacher_select');
+
+    // 【新增】动态卡片元素
+    const recentHonorsTitle = document.getElementById('recent-honors-title');
+    const recentHonorsContainer = document.getElementById('recent-honors-container');
+    const recentHonorsSpinner = document.getElementById('recent-honors-spinner');
+
+    // (用于防抖)
+    let debounceTimeout;
+
+    // --- 2. 定义函数 ---
+
+    // AJAX 查重防抖
+    function debounce(func, delay) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(func, delay);
+    }
+
+    // AJAX 查重核心
+    async function performDuplicateCheck() {
+        const name = honorNameInput.value.trim().toLowerCase();
+        const username = teacherSelect.value;
+        if (name.length < 3 || !username) {
+            warningCard.classList.add('hidden');
+            return;
+        }
+        try {
+            const response = await fetch(`/api/check_honor_exists?name=${encodeURIComponent(name)}&username=${encodeURIComponent(username)}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) { throw new Error('API request failed'); }
+            const data = await response.json();
+            if (data.found && data.matches.length > 0) {
+                warningList.innerHTML = '';
+                data.matches.forEach(match => {
+                    const li = document.createElement('li');
+                    li.textContent = `${match.name} (${match.date})`;
+                    warningList.appendChild(li);
+                });
+                warningCard.classList.remove('hidden');
+            } else {
+                warningCard.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Duplicate check failed:', error);
+            warningCard.classList.add('hidden');
+        }
+    }
+
+    // 【新增】动态卡片更新函数
+    const selfUsername = "{{ session.username }}";
+    async function updateRecentHonors(targetUsername, targetTruename) {
+        if (!recentHonorsContainer || !recentHonorsSpinner || !recentHonorsTitle) return;
+
+        // 1. 更新标题并显示 Spinner
+        if (targetUsername === selfUsername) {
+            recentHonorsTitle.textContent = "我最近添加的荣誉";
+        } else {
+            recentHonorsTitle.textContent = `${targetTruename} 的最近荣誉`;
+        }
+        recentHonorsSpinner.classList.remove('hidden');
+        recentHonorsContainer.classList.add('hidden'); // 隐藏旧内容
+
+        try {
+            // 2. 调用 API
+            const response = await fetch(`/api/user/${targetUsername}/recent_honors`);
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            const data = await response.json();
+
+            // 3. 更新卡片内容
+            if (data.success) {
+                recentHonorsContainer.innerHTML = data.html;
+            } else {
+                recentHonorsContainer.innerHTML = `<p class="text-sm text-error">加载失败: ${data.error || 'Unknown error'}</p>`;
+            }
+        } catch (error) {
+            console.error('Failed to update recent honors:', error);
+            recentHonorsContainer.innerHTML = `<p class="text-sm text-error">加载荣誉时发生网络错误。</p>`;
+        } finally {
+            // 4. 隐藏 Spinner, 显示新内容
+            recentHonorsSpinner.classList.add('hidden');
+            recentHonorsContainer.classList.remove('hidden');
+        }
+    }
+
+    // --- 3. 绑定所有事件 ---
+
+    // 文件上传事件
+    if (submissionFileInput) {
         submissionFileInput.addEventListener('change', (event) => {
-            handleSubmissionFileSelect(event, submissionFileInput, submissionStatusDiv);
+            handleSubmissionFileSelect(
+                event,
+                submissionFileInput,
+                submissionStatusDiv,
+                filePreviewCard,
+                filePreviewImage,
+                filePreviewName,
+                filePreviewFigure
+            );
         });
     }
-});
-</script>
 
-{% if session.role == 'admin' %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
+    // 文件预览卡片的关闭按钮
+    if (closePreviewBtn) {
+        closePreviewBtn.addEventListener('click', () => {
+            filePreviewCard.classList.add('hidden');
+            submissionFileInput.value = '';
+            submissionStatusDiv.textContent = '已取消上传。';
+            submissionStatusDiv.style.color = 'hsl(var(--wa))';
+            filePreviewFigure.onclick = null;
+        });
+    }
+
+    // AJAX 查重事件 (绑定到 honorNameInput)
+    if (honorNameInput) {
+        honorNameInput.addEventListener('input', () => {
+            debounce(performDuplicateCheck, 500);
+        });
+    }
+
+    // 教师选择框的事件 (同时触发 查重 和 动态卡片)
+    if (teacherSelect) {
+        teacherSelect.addEventListener('change', () => {
+            // 1. 立即触发查重
+            performDuplicateCheck();
+
+            // 2. 触发动态卡片更新 (仅限 Admin 和 Major_admin)
+            {% if session.role in ['admin', 'major_admin'] %}
+            const selectedOption = teacherSelect.options[teacherSelect.selectedIndex];
+            const selectedUsername = selectedOption.value;
+            const selectedTruename = selectedOption.text.split('(')[0].trim();
+
+            if (selectedUsername) {
+                updateRecentHonors(selectedUsername, selectedTruename);
+            }
+            {% endif %}
+        });
+    }
+
+    // Admin 级联事件 (绑定到 majorSelect)
+    {% if session.role == 'admin' %}
     const majorSelect = document.getElementById('major_select');
-    const teacherSelect = document.getElementById('teacher_select');
-    
-    // 从后端获取的按专业分组的用户数据
-    // 注意：这里使用 tojson | safe 来安全地将Python字典转为JavaScript对象
+    const teacherSelectAdmin = document.getElementById('teacher_select'); // (已在顶部定义)
     const usersByMajor = JSON.parse('{{ users_by_major_json | tojson | safe }}');
 
     function updateTeacherOptions(major) {
-        // 清空现有选项
-        teacherSelect.innerHTML = '';
-        
+        teacherSelectAdmin.innerHTML = '';
         const users = usersByMajor[major] || [];
-
         if (users.length === 0) {
             const defaultOption = new Option('该专业下无教师记录', '');
             defaultOption.disabled = true;
-            teacherSelect.add(defaultOption);
-            teacherSelect.value = '';
+            teacherSelectAdmin.add(defaultOption);
+            teacherSelectAdmin.value = '';
         } else {
-            // 添加一个默认的提示选项
             const defaultOption = new Option('请选择教师', '');
             defaultOption.disabled = true;
-            teacherSelect.add(defaultOption);
-            
-            // 填充教师选项
+            teacherSelectAdmin.add(defaultOption);
             users.forEach(user => {
                 const option = new Option(`${user.truename} (${user.username})`, user.username);
-                teacherSelect.add(option);
+                teacherSelectAdmin.add(option);
             });
-            teacherSelect.value = ''; // 默认不选中
+            teacherSelectAdmin.value = '';
+        }
+
+        // 【重要】当专业改变时，教师被重置，
+        // 此时也应该重置“最近荣誉”卡片到初始状态
+        // (如果选中的教师被清空)
+        if (!teacherSelectAdmin.value) {
+            updateRecentHonors(selfUsername, "{{ session.truename }}");
         }
     }
 
@@ -341,9 +526,12 @@ document.addEventListener('DOMContentLoaded', () => {
         majorSelect.addEventListener('change', (event) => {
             const selectedMajor = event.target.value;
             updateTeacherOptions(selectedMajor);
+            // 专业改变时，也清空查重警告
+            warningCard.classList.add('hidden');
         });
     }
+    {% endif %}
+
 });
 </script>
-{% endif %}
 {% endblock %}

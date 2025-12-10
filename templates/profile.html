@@ -2,48 +2,138 @@
 
 {% block title %}个人资料{% endblock %}
 
-{% block head_extra %}
-<style>
-    /* 增加卡片之间的垂直间距 */
-    .profile-section + .profile-section {
-        margin-top: 2rem;
-    }
-    .form-control {
-        margin-bottom: 0.5rem; /* 调整表单项之间的间距 */
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    {# --- 1. 修改基本资料 Section --- #}
-    <section class="profile-section">
-        <h2 class="text-2xl font-semibold mb-4 divider divider-start">修改基本资料</h2>
+    {# --- 1. 左侧栏 (用户信息 + 统计) --- #}
+    <div class="lg:col-span-2 space-y-6">
+
         <div class="card bg-base-200 shadow-xl">
             <div class="card-body">
+                <div class="items-center text-center">
+                    <div class="avatar">
+                        <div class="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4">
+                            <img src="https://ui-avatars.com/api/?name={{ user.truename[0] if user.truename else 'U' }}&background=random&color=fff" />
+                        </div>
+                    </div>
+                    <h2 class="card-title justify-center text-3xl mt-4">{{ user.truename }}</h2>
+                    <p class="text-base-content/70">{{ user.username }}</p>
+                    <div class="badge badge-accent badge-lg">
+                        {% if user.role == 'admin' %}管理员
+                        {% elif user.role == 'major_admin' %}专业负责人
+                        {% else %}教师
+                        {% endif %}
+                    </div>
+                    <p class="text-sm mt-2">
+                        {% if user.major %}
+                        所属专业: <strong>{{ user.major }}</strong>
+                        {% endif %}
+                    </p>
+                    <p class="text-sm mt-1">
+                        {% if user.employment_day %}
+                        入职日期: <strong>{{ user.employment_day }}</strong>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="divider my-4"></div>
+
+                <div class="stats stats-horizontal shadow w-full">
+                    <div class="stat">
+                        <div class="stat-title">入职天数</div>
+                        <div class="stat-value">{{ stats.days }}</div>
+                        <div class="stat-desc">天</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title">入职年数</div>
+                        <div class="stat-value">{{ stats.years }}</div>
+                        <div class="stat-desc">年</div>
+                    </div>
+                     <div class="stat">
+                        <div class="stat-title">近一年荣誉</div>
+                        <div class="stat-value">{{ stats.last_year }}</div>
+                        <div class="stat-desc">项</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title">累计荣誉总数</div>
+                        <div class="stat-value text-secondary">{{ stats.total }}</div>
+                        <div class="stat-desc">项</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">最近操作记录 (10条)</h2>
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>时间 (UTC)</th>
+                                <th>操作类型</th>
+                                <th>详情</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in activities %}
+                            <tr class="hover">
+                                <td class="text-xs whitespace-nowrap">{{ activity.timestamp_obj.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td><div class="badge badge-outline">{{ activity.action }}</div></td>
+                                <td class="text-sm">{{ activity.details }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center h-20">暂无操作记录。</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    {# --- 2. 右侧主内容区 (表单) --- #}
+    <div class="lg:col-span-1 space-y-6">
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">修改基本资料</h2>
                 <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
-                    {# 关键：隐藏字段，用于后端识别是哪个表单提交的 #}
                     <input type="hidden" name="form_type" value="update_profile">
 
                     <div class="form-control">
-                        <label class="label" for="truename">
-                            <span class="label-text">真实姓名</span>
-                        </label>
+                        <label class="label" for="truename"><span class="label-text">真实姓名</span></label>
                         <input type="text" id="truename" name="truename" value="{{ user.truename or '' }}" class="input input-bordered w-full" required>
                     </div>
 
                     <div class="form-control">
-                        <label class="label" for="major">
-                            <span class="label-text">专业</span>
-                        </label>
-                        <input type="text" id="major" name="major" value="{{ user.major or '' }}" class="input input-bordered w-full">
+                        <label class="label" for="major"><span class="label-text">专业</span></label>
+                        <select id="major" name="major" class="select select-bordered w-full" required>
+                            <option value="" disabled {% if not user.major %}selected{% endif %}>
+                                -- 请选择您的专业 --
+                            </option>
+                            {% for major_option in majors %}
+                                <option value="{{ major_option }}" {% if user.major == major_option %}selected{% endif %}>
+                                    {{ major_option }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <div class="form-control">
-                        <label class="label" for="motto">
-                            <span class="label-text">个性签名</span>
-                        </label>
+                        <label class="label" for="employment_day"><span class="label-text">入职日期</span></label>
+                        <input type="date" id="employment_day" name="employment_day"
+                               value="{{ user.employment_day or '' }}"
+                               class="input input-bordered w-full"
+                               max="{{ now.strftime('%Y-%m-%d') }}"
+                               required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label" for="motto"><span class="label-text">个性签名</span></label>
                         <input type="text" id="motto" name="motto" value="{{ user.motto or '' }}" class="input input-bordered w-full" maxlength="100">
                     </div>
 
@@ -53,47 +143,32 @@
                 </form>
             </div>
         </div>
-    </section>
 
-    {# --- 2. 修改密码 Section --- #}
-    <section class="profile-section">
-        <h2 class="text-2xl font-semibold mb-4 divider divider-start">修改密码</h2>
-        <div class="card bg-base-200 shadow-xl">
+        <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
+                <h2 class="card-title mb-4">修改密码</h2>
                 <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
-                     {# 关键：隐藏字段 #}
                     <input type="hidden" name="form_type" value="change_password">
-
                     <div class="form-control">
-                        <label class="label" for="old_password">
-                            <span class="label-text">当前密码</span>
-                        </label>
+                        <label class="label" for="old_password"><span class="label-text">当前密码</span></label>
                         <input type="password" id="old_password" name="old_password" class="input input-bordered w-full" required>
                     </div>
-
                     <div class="form-control">
-                        <label class="label" for="new_password">
-                            <span class="label-text">新密码</span>
-                        </label>
+                        <label class="label" for="new_password"><span class="label-text">新密码</span></label>
                         <input type="password" id="new_password" name="new_password" class="input input-bordered w-full" required minlength="6">
-                         <label class="label">
-                            <span class="label-text-alt">密码长度至少为6位</span>
-                        </label>
+                        <label class="label"><span class="label-text-alt">密码长度至少为6位</span></label>
                     </div>
-
                     <div class="form-control">
-                        <label class="label" for="confirm_password">
-                            <span class="label-text">确认新密码</span>
-                        </label>
+                        <label class="label" for="confirm_password"><span class="label-text">确认新密码</span></label>
                         <input type="password" id="confirm_password" name="confirm_password" class="input input-bordered w-full" required>
                     </div>
-
                     <div class="card-actions justify-end mt-6">
                         <button type="submit" class="btn btn-secondary">确认修改密码</button>
                     </div>
                 </form>
             </div>
         </div>
-    </section>
+
+    </div>
 </div>
 {% endblock %}

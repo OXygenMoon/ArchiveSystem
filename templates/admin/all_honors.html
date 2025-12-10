@@ -1,20 +1,20 @@
-<!DOCTYPE html>
 {% extends "layout.html" %}
 
-{% block title %}荣誉总览 (管理员){% endblock %}
+{% block title %}全校荣誉看板 (画廊){% endblock %}
 
 {% block head_extra %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
 <style>
-    /* --- 布局与通用样式 (与 home.html 相同) --- */
+    /* (CSS 样式保持不变) */
     .honor-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
     .honor-filters-container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
-    .honor-filter-container select { min-width: 130px; }
     .keyword-search-container { display: flex; align-items: center; gap: 0.5rem; flex-grow: 1; max-width: 250px; }
-    .keyword-search-container input { width: 100%; }
-    .card figure img { will-change: transform; }
-    .toast { z-index: 9999 !important; }
-
-    /* --- 编辑荣誉模态框样式 (与 home.html 相同) --- */
+    #motto-display-area { cursor: pointer; min-height: 2.5rem; }
+    #motto-display-area .btn { opacity: 0; transition: opacity 0.2s ease-in-out; }
+    #motto-display-area:hover .btn { opacity: 0.7; }
+    #motto-display-area .btn:hover { opacity: 1; }
+    #motto-text { transition: color 0.2s; }
+    #motto-display-area:hover #motto-text { color: hsl(var(--p)); }
     #edit_honor_modal .modal-box { max-width: 48rem; width: 100%; }
     #edit_honor_modal .modal-content-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; width: 100%; }
     #edit_honor_modal .modal-image-container { display: flex; flex-direction: column; align-items: center; }
@@ -27,78 +27,74 @@
         #edit_honor_modal .modal-image-container img { max-height: 200px; }
         .keyword-search-container { max-width: none; }
     }
+    .card figure img { will-change: transform; }
+    .toast { z-index: 9999 !important; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-8">
 
-    {# --- 1. 荣誉统计 Section (基于客户端当前筛选结果) --- #}
     <section>
-        <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
-            <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计 (当前视图)</h2>
-            <div class="btn-group">
-                <button id="stats-toggle-type" class="btn btn-sm btn-active" onclick="switchStatsView('type')">按类型</button>
-                <button id="stats-toggle-level" class="btn btn-sm" onclick="switchStatsView('level')">按等级</button>
-            </div>
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
+        <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">荣誉统计 (全校)</h2>
+        <div class="btn-group">
+            <button id="stats-toggle-type" class="btn btn-sm btn-active" onclick="switchStatsView('type')">按类型</button>
+            <button id="stats-toggle-level" class="btn btn-sm" onclick="switchStatsView('level')">按等级</button>
         </div>
-        {# 按类型统计 #}
-        <div id="stats-by-type">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-type" class="text-3xl font-bold text-primary">0</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {% for type_name in honor_types %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div>
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {# 按等级统计 #}
-        <div id="stats-by-level" class="hidden">
-             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
-                    <div id="stats-total-count-level" class="text-3xl font-bold text-primary">0</div>
-                    <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
-                </div>
-                {% for level_name in honor_levels %}
-                <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
-                    <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
-                    <div class="stat-count text-3xl font-bold text-accent">0</div>
-                    <div class="text-xs text-base-content/50 mt-1">项记录</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
+    </div>
 
-    {# --- 2. 荣誉列表与筛选 Section --- #}
+    <div id="stats-by-type">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-type" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
+            </div>
+            {% for type_name in honor_types %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-type="{{ type_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ type_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div id="stats-by-level" class="hidden">
+         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 w-full">
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full">
+                <div class="text-sm font-medium text-base-content/70 mb-1">当前总计</div>
+                <div id="stats-total-count-level" class="text-3xl font-bold text-primary">{{ honors | length }}</div>
+                <div class="text-xs text-base-content/50 mt-1">项荣誉</div>
+            </div>
+            {% for level_name in honor_levels %}
+            <div class="bg-base-200 shadow rounded-lg p-4 flex flex-col justify-center items-center text-center h-full" data-stat-level="{{ level_name | escape }}">
+                <div class="text-sm font-medium text-base-content/70 mb-1">{{ level_name | escape }}</div>
+                <div class="stat-count text-3xl font-bold text-accent">0</div>
+                <div class="text-xs text-base-content/50 mt-1">项记录</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
     <section>
         <div class="honor-section-header">
-            {# 动态标题 #}
             {% set filter_map = {'last_year': '一年内', 'last_3_years': '三年内', 'last_5_years': '五年内'} %}
             {% set filter_text = filter_map.get(selected_date_filter, '全部时间') %}
-            {% if selected_date_filter == 'custom' and request.args.get('start_date') and request.args.get('end_date') %}
-                {% set filter_text = request.args.get('start_date') + ' 至 ' + request.args.get('end_date') %}
-            {% elif selected_date_filter == 'custom' %}
-                {% set filter_text = '自选时间段' %}
-            {% endif %}
+
             <h2 class="text-xl font-semibold divider divider-start my-0 flex-shrink-0">
-                全部荣誉记录 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
+                全校荣誉看板 <span class="text-base-content/70 font-normal">({{ filter_text }})</span>
             </h2>
 
-            {# 筛选器容器 #}
             <div class="honor-filters-container">
+
                 <div class="keyword-search-container" title="按荣誉名称搜索">
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
                     <input type="text" id="keyword-search-input" class="input input-bordered input-sm w-full" placeholder="搜索荣誉名称..."/>
                 </div>
 
+                {% set base_url = url_for('admin_all_honors') %}
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal">
                         <span>{{ filter_text }}</span>
@@ -107,137 +103,187 @@
                     <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-80 space-y-3">
                         <h4 class="font-bold px-4">筛选时间</h4>
                         <ul class="menu p-0">
-                            <li><a href="{{ url_for('admin_all_honors', filter_date='all') }}">全部时间</a></li>
-                            <li><a href="{{ url_for('admin_all_honors', filter_date='last_year') }}">一年内</a></li>
-                            <li><a href="{{ url_for('admin_all_honors', filter_date='last_3_years') }}">三年内</a></li>
-                            <li><a href="{{ url_for('admin_all_honors', filter_date='last_5_years') }}">五年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=all">全部时间</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_year">一年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_3_years">三年内</a></li>
+                            <li><a href="{{ base_url }}?filter_date=last_5_years">五年内</a></li>
                         </ul>
-                        <div class="divider my-1">或自选范围</div>
-                        <div class="space-y-2 px-2">
-                            <div class="form-control"><label class="label py-0"><span class="label-text-alt">开始日期</span></label><input type="date" id="start-date-input" class="input input-bordered input-sm"></div>
-                            <div class="form-control"><label class="label py-0"><span class="label-text-alt">结束日期</span></label><input type="date" id="end-date-input" class="input input-bordered input-sm" max="{{ now().strftime('%Y-%m-%d') }}"></div>
-                        </div>
-                        <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
                     </div>
                 </div>
 
                 <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="user-filter-btn"><span id="user-filter-label">筛选教师</span><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg></label>
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="teacher-filter-btn">
+                        <span id="teacher-filter-label">筛选教师</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
                     <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
                         <h4 class="font-bold px-4 mb-2">筛选教师</h4>
                         <div class="max-h-60 overflow-y-auto">
-                        {% for username, truename in all_teachers.items()|sort(attribute=1) %}
-                            <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ truename }}</span><input type="checkbox" value="{{ username | escape }}" class="checkbox checkbox-sm checkbox-primary honor-user-cb"/></label></div>
+                        {% for username, truename in all_teachers.items() | sort(attribute='1') %}
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ truename }}</span>
+                                    <input type="checkbox" value="{{ username | escape }}" class="checkbox checkbox-sm checkbox-primary filter-cb" data-filter-type="teacher"/>
+                                </label>
+                            </div>
                         {% endfor %}
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="major-filter-btn"><span id="major-filter-label">筛选专业</span><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg></label>
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="major-filter-btn">
+                        <span id="major-filter-label">筛选专业</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
                     <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
                         <h4 class="font-bold px-4 mb-2">筛选专业</h4>
                         <div class="max-h-60 overflow-y-auto">
-                        {% for major_option in all_majors %}
-                             <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ major_option }}</span><input type="checkbox" value="{{ major_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-major-cb"/></label></div>
+                        {% for major in all_majors %}
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ major }}</span>
+                                    <input type="checkbox" value="{{ major | escape }}" class="checkbox checkbox-sm checkbox-primary filter-cb" data-filter-type="major"/>
+                                </label>
+                            </div>
                         {% endfor %}
                         </div>
                     </div>
                 </div>
 
                 <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="type-filter-btn"><span id="type-filter-label">筛选类型</span><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg></label>
-                    <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="type-filter-btn">
+                        <span id="type-filter-label">筛选类型</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
+                    <div tabindex="0" id="type-filter-dropdown" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
                         <h4 class="font-bold px-4 mb-2">筛选类型</h4>
                         <div class="max-h-60 overflow-y-auto">
                         {% for type_option in honor_types %}
-                            <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ type_option }}</span><input type="checkbox" value="{{ type_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-type-cb"/></label></div>
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ type_option }}</span>
+                                    <input type="checkbox" value="{{ type_option | escape }}" class="checkbox checkbox-sm checkbox-primary filter-cb" data-filter-type="type"/>
+                                </label>
+                            </div>
                         {% endfor %}
                         </div>
                     </div>
                 </div>
 
                 <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="level-filter-btn"><span id="level-filter-label">筛选等级</span><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg></label>
-                    <div tabindex="0" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
+                    <label tabindex="0" class="btn btn-sm btn-outline m-1 font-normal" id="level-filter-btn">
+                        <span id="level-filter-label">筛选等级</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </label>
+                    <div tabindex="0" id="level-filter-dropdown" class="dropdown-content z-[10] menu p-4 shadow bg-base-200 rounded-box w-60 space-y-1">
                          <h4 class="font-bold px-4 mb-2">筛选等级</h4>
                          <div class="max-h-60 overflow-y-auto">
                         {% for level_option in honor_levels %}
-                            <div class="form-control"><label class="label py-1 cursor-pointer"><span class="label-text">{{ level_option }}</span><input type="checkbox" value="{{ level_option | escape }}" class="checkbox checkbox-sm checkbox-primary honor-level-cb"/></label></div>
+                            <div class="form-control">
+                                <label class="label py-1 cursor-pointer">
+                                    <span class="label-text">{{ level_option }}</span>
+                                    <input type="checkbox" value="{{ level_option | escape }}" class="checkbox checkbox-sm checkbox-primary filter-cb" data-filter-type="level"/>
+                                </label>
+                            </div>
                         {% endfor %}
                         </div>
                     </div>
                 </div>
 
-                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选">重置筛选</button>
+                <button id="reset-filters-btn" class="btn btn-primary btn-sm" title="重置全部筛选" data-base-url="{{ base_url }}?filter_date=all">
+                    重置筛选
+                </button>
             </div>
         </div>
 
-        {# 荣誉卡片网格 #}
         {% if honors %}
             <div id="honors-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6 mt-4">
                 {% for honor in honors %}
-                    {% set current_level = honor.honor_level or honor.level %}
                     <div id="card-{{ honor.id }}"
                          class="card bg-base-100 shadow-xl transition-shadow duration-300 hover:shadow-2xl group overflow-hidden"
                          data-type="{{ honor.type | escape }}"
-                         data-level="{{ current_level | default('', true) | escape }}"
+                         data-level="{{ honor.honor_level | default('', true) | escape }}"
                          data-name="{{ honor.name | escape }}"
-                         data-user="{{ honor.username | escape }}"
-                         data-major="{{ honor.major | escape }}"
-                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}')">
-                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200" onclick="showImageModal('{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}', '{{ honor.name | escape | replace("'", "\\'") }}')">
-                            {% set parts = honor.image_filename.rsplit('.', 1) %}
-                            {% set thumb_filename = parts[0] + '_thumb.' + parts[1] if parts|length == 2 else honor.image_filename %}
-                            <img src="{{ url_for('uploaded_file_user', username=honor.username, filename=thumb_filename) }}" alt="{{ honor.name }} 缩略图" loading="lazy" class="object-cover h-full w-full" onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}';">
+                         data-major="{{ honor.owner.major | default('N/A', true) | escape }}"
+                         data-teacher="{{ honor.owner.username | escape }}"
+                         onmouseenter="preloadImage('{{ url_for('uploaded_file_user', username=honor.owner.username, filename=honor.image_filename) }}')">
+
+                        {% set pages_list = honor.page_images or [honor.image_filename] %}
+                        <figure class="relative cursor-pointer overflow-hidden h-64 w-full bg-base-200"
+                                onclick='showImageModal("{{ honor.owner.username }}", "{{ honor.name | escape | replace("'", "\\'") }}", {{ pages_list | tojson | safe }})'>
+
+                            {% set thumb_filename = honor.thumb_filename or honor.image_filename %}
+
+                            <img id="img-thumb-{{ honor.id }}"
+                                 src="{{ url_for('uploaded_file_user', username=honor.owner.username, filename=thumb_filename) }}"
+                                 loading="lazy"
+                                 alt="{{ honor.name }} 缩略图"
+                                 class="object-cover h-full w-full"
+                                 onerror="this.onerror=null; this.src='{{ url_for('uploaded_file_user', username=honor.owner.username, filename=honor.image_filename) }}';" />
                         </figure>
                         <div class="card-body p-4">
-                            <div class="text-xs text-base-content/60 mb-2">
-                                <span class="font-semibold text-primary">{{ honor.truename }}</span> / {{ honor.major }}
+                            <div class="mb-2">
+                                <a href="{{ url_for('view_user_dashboard', username_to_view=honor.owner.username) }}" class="link link-hover link-primary font-semibold text-sm">
+                                    {{ honor.owner.truename }}
+                                </a>
                             </div>
-                            <h3 class="card-title text-base lg:text-lg font-semibold truncate" title="{{ honor.name }}">{{ honor.name }}</h3>
+
+                            <h3 id="card-title-{{ honor.id }}" class="card-title text-base lg:text-lg font-semibold truncate" title="{{ honor.name }}">{{ honor.name }}</h3>
+
                             <div class="text-sm text-base-content/80 space-y-1 mt-2">
-                                <p><span class="font-medium">类型:</span> {{ honor.type }}</p>
-                                {% if current_level %}<p><span class="font-medium">等级:</span> {{ current_level }}</p>{% endif %}
-                                <p><span class="font-medium">时间:</span> {{ honor.date }}</p>
-                                <p><span class="font-medium">单位:</span> <span title="{{ honor.stamp }}">{{ honor.stamp | truncate(20) }}</span></p>
+                                <p><span class="font-medium text-base-content/60">类型:</span> <span id="card-type-{{ honor.id }}">{{ honor.type }}</span></p>
+                                <p><span class="font-medium text-base-content/60">等级:</span> <span id="card-level-{{ honor.id }}">{{ honor.honor_level }}</span></p>
+                                <p><span class="font-medium text-base-content/60">时间:</span> <span id="card-date-{{ honor.id }}">{{ honor.date }}</span></p>
+                                <p><span class="font-medium text-base-content/60">单位:</span> <span id="card-stamp-{{ honor.id }}" title="{{ honor.stamp }}">{{ honor.stamp | truncate(20) }}</span></p>
                             </div>
-                            <div class="card-actions justify-end mt-3">
-                                <button type="button" class="btn btn-xs sm:btn-sm btn-outline btn-primary" title="编辑"
+
+                            <div class="card-actions justify-end mt-3 items-center space-x-2">
+                                <button type="button" id="edit-btn-{{ honor.id }}" class="btn btn-xs sm:btn-sm btn-outline btn-primary" title="编辑"
                                         onclick="openEditModal(this)"
-                                        data-id="{{ honor.id }}" data-name="{{ honor.name | escape }}" data-type="{{ honor.type | escape }}" data-level="{{ current_level | default('', true) | escape }}"
-                                        data-date="{{ honor.date }}" data-stamp="{{ honor.stamp | escape }}" data-stamp-other="{{ honor.stamp_other | default('', true) | escape }}"
-                                        data-image-url="{{ url_for('uploaded_file_user', username=honor.username, filename=honor.image_filename) }}">
-                                    编辑
+                                        data-id="{{ honor.id }}"
+                                        data-name="{{ honor.name | escape }}"
+                                        data-type="{{ honor.type | escape }}"
+                                        data-level="{{ honor.honor_level | default('', true) | escape }}"
+                                        data-date="{{ honor.date }}"
+                                        data-stamp="{{ honor.stamp | escape }}"
+                                        data-stamp-other="{{ honor.stamp_other | default('', true) | escape }}"
+                                        data-image-url="{{ url_for('uploaded_file_user', username=honor.owner.username, filename=honor.image_filename) }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                    <span class="hidden sm:inline ml-1">编辑</span>
                                 </button>
-                                <form method="post" action="{{ url_for('delete_honor', honor_id=honor.id) }}" onsubmit="return confirm('警告：您确定要永久删除教师 “{{ honor.truename }}” 的 “{{ honor.name | escape | replace("'", "\\'") }}” 这条荣誉记录吗？\n\n此操作无法撤销！');" style="display: inline;">
-                                    <button type="submit" class="btn btn-xs sm:btn-sm btn-outline btn-secondary" title="删除">删除</button>
+                                <form method="post" action="{{ url_for('delete_honor', honor_id=honor.id) }}" onsubmit="return confirm('警告：您确定要永久删除 “{{ honor.name | escape | replace("'", "\\'") }}” 这条荣誉记录吗？\n\n此操作将同时删除关联的图片文件，且无法撤销！');" style="display: inline;">
+                                    <button type="submit" class="btn btn-xs sm:btn-sm btn-outline btn-secondary" title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                        <span class="hidden sm:inline ml-1">删除</span>
+                                    </button>
                                 </form>
                             </div>
                         </div>
                     </div>
                 {% endfor %}
             </div>
+
             <div id="no-honors-message" class="alert alert-warning mt-6 shadow-md hidden" role="alert">
-                <span>在当前视图中，未找到符合所选条件的荣誉记录。</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                <span>在当前列表（{{ filter_text }}）中，未找到符合所选条件的荣誉记录。</span>
                 <button class="btn btn-sm btn-ghost" onclick="resetClientFilters()">重置筛选</button>
             </div>
+
         {% else %}
              <div class="alert alert-info mt-6 shadow-md">
-                 <span>系统中还没有任何荣誉记录。</span>
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                 <span>在选定的时间范围（{{ filter_text }}）内没有荣誉记录。</span>
             </div>
         {% endif %}
     </section>
-
 </div>
-
-{# Modal 和 Toast 弹窗定义，如果这些文件在你的项目中是可复用的，推荐使用 include #}
-{# 例如: {% include '_partials/edit_honor_modal.html' %} #}
-{# 为确保独立性，这里直接写出HTML #}
 
 <dialog id="edit_honor_modal" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box relative">
-        <div id="edit_modal_loading" class="loading-overlay hidden"><span class="loading loading-spinner loading-lg text-primary"></span></div>
+        <div id="edit_modal_loading" class="loading-overlay hidden">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
+        </div>
         <div class="modal-content-grid">
             <div class="modal-image-container">
                 <img id="edit_modal_image" src="" alt="当前荣誉图片" />
@@ -267,7 +313,7 @@
                     </div>
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_date"><span class="label-text font-medium">获得时间 <span class="text-error">*</span></span></label>
-                        <input type="date" id="edit_honor_date" name="honor_date" class="input input-sm input-bordered w-full" required max="{{ now().strftime('%Y-%m-%d') }}"/>
+                        <input type="date" id="edit_honor_date" name="honor_date" class="input input-sm input-bordered w-full" required max="{{ now.strftime('%Y-%m-%d') }}"/>
                     </div>
                     <div class="form-control w-full">
                         <label class="label py-1" for="edit_honor_stamp"><span class="label-text font-medium">颁发单位 <span class="text-error">*</span></span></label>
@@ -278,9 +324,10 @@
                         <input type="text" id="edit_honor_stamp_other" name="honor_stamp_other" class="input input-sm input-bordered w-full" />
                     </div>
                     <div class="form-control w-full">
-                        <label class="label py-1" for="edit_honor_image_file"><span class="label-text font-medium">替换证明图片 (可选)</span></label>
-                        <input type="file" id="edit_honor_image_file" name="honor_image" class="file-input file-input-sm file-input-bordered file-input-secondary w-full" accept="image/png, image/jpeg, image/gif" />
-                        <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图</span></label>
+                        <label class="label py-1" for="edit_honor_image_file"><span class="label-text font-medium">替换证明文件 (可选, 支持PDF)</span></label>
+                        <input type="file" id="edit_honor_image_file" name="honor_image" class="file-input file-input-sm file-input-bordered file-input-secondary w-full" accept=".png,.jpg,.jpeg,.gif,.pdf" />
+                        <div id="edit-upload-status" class="label-text-alt text-xs mt-1 min-h-[1rem]"></div>
+                        <label class="label py-0"><span class="label-text-alt text-xs">不选则保留原图。PDF文件将被自动转换为图片。</span></label>
                     </div>
                     <div id="edit_modal_error" class="text-error text-sm mt-2 hidden min-h-[1.25rem]"></div>
                     <div class="modal-action mt-4 justify-end space-x-2">
@@ -297,73 +344,41 @@
     </form>
 </dialog>
 
-<dialog id="image_modal" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl">
-    <h3 id="modal_title" class="font-bold text-lg">图片详情</h3>
-    <div class="py-4">
-      <img id="modal_image" src="" alt="荣誉图片放大" class="w-full h-auto object-contain max-h-[80vh]"/>
-    </div>
-    <div class="modal-action">
-      <form method="dialog">
-        <button class="btn">关闭</button>
-      </form>
-    </div>
-  </div>
-   <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
-</dialog>
-
-
 <div id="toast-success" class="toast toast-top toast-center hidden">
     <div class="alert alert-success shadow-lg">
         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span id="toast-success-message">操作成功！</span>
     </div>
 </div>
-
 {% endblock %}
 
 
-{# ====================================================== #}
-{# ================ JAVASCRIPT SECTION ================== #}
-{# ====================================================== #}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
 <script>
-// 全局辅助函数
-const preloadedImages = new Set();
-function preloadImage(url) {
-    if (!preloadedImages.has(url)) {
-        const img = new Image();
-        img.src = url;
-        preloadedImages.add(url);
-    }
-}
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js`;
+</script>
 
+<script>
 document.addEventListener('DOMContentLoaded', () => {
-    //==========================================================
-    // 1. 全局 DOM 元素引用
-    //==========================================================
+
+    // --- 1. DOM 元素引用 ---
     const honorsGrid = document.getElementById('honors-grid');
     const noHonorsMessage = document.getElementById('no-honors-message');
     const keywordSearchInput = document.getElementById('keyword-search-input');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const successToast = document.getElementById('toast-success');
+    const successToastMessage = document.getElementById('toast-success-message');
 
-    // Dropdown 筛选器
-    const startDateInput = document.getElementById('start-date-input');
-    const endDateInput = document.getElementById('end-date-input');
-    const applyCustomDateBtn = document.getElementById('apply-custom-date-btn');
-    
-    const userFilterBtnLabel = document.getElementById('user-filter-label');
+    const teacherFilterBtnLabel = document.getElementById('teacher-filter-label');
+    const teacherCheckboxes = document.querySelectorAll('[data-filter-type="teacher"]');
     const majorFilterBtnLabel = document.getElementById('major-filter-label');
+    const majorCheckboxes = document.querySelectorAll('[data-filter-type="major"]');
     const typeFilterBtnLabel = document.getElementById('type-filter-label');
+    const typeCheckboxes = document.querySelectorAll('[data-filter-type="type"]');
     const levelFilterBtnLabel = document.getElementById('level-filter-label');
+    const levelCheckboxes = document.querySelectorAll('[data-filter-type="level"]');
 
-    const userCheckboxes = document.querySelectorAll('.honor-user-cb');
-    const majorCheckboxes = document.querySelectorAll('.honor-major-cb');
-    const typeCheckboxes = document.querySelectorAll('.honor-type-cb');
-    const levelCheckboxes = document.querySelectorAll('.honor-level-cb');
-    const allCheckboxes = document.querySelectorAll('.dropdown-content .checkbox');
-
-    // 统计相关
     const statsByTypeDiv = document.getElementById('stats-by-type');
     const statsByLevelDiv = document.getElementById('stats-by-level');
     const statsToggleTypeBtn = document.getElementById('stats-toggle-type');
@@ -371,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsTotalCountType = document.getElementById('stats-total-count-type');
     const statsTotalCountLevel = document.getElementById('stats-total-count-level');
 
-    // 编辑荣誉 Modal 相关
     const editModal = document.getElementById('edit_honor_modal');
     const editForm = document.getElementById('edit_honor_form');
     const editModalError = document.getElementById('edit_modal_error');
@@ -383,60 +397,57 @@ document.addEventListener('DOMContentLoaded', () => {
     const editHonorDateInput = document.getElementById('edit_honor_date');
     const editHonorStampInput = document.getElementById('edit_honor_stamp');
     const editHonorStampOtherInput = document.getElementById('edit_honor_stamp_other');
+    const editHonorImageInput = document.getElementById('edit_honor_image_file');
     const editModalImage = document.getElementById('edit_modal_image');
+    const editUploadStatus = document.getElementById('edit-upload-status');
 
-    // Toast 相关
-    const successToast = document.getElementById('toast-success');
-    const successToastMessage = document.getElementById('toast-success-message');
+    // --- 2. 函数定义 ---
 
-    //==========================================================
-    // 2. 函数定义
-    //==========================================================
-
-    // --- 筛选核心逻辑 ---
+    // (客户端筛选函数)
     function applyAllClientFilters() {
         if (!honorsGrid) return;
+
         const keyword = keywordSearchInput ? keywordSearchInput.value.trim().toLowerCase() : "";
-        const selectedUsers = Array.from(userCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedTeachers = Array.from(teacherCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
         const selectedMajors = Array.from(majorCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
         const selectedTypes = Array.from(typeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
         const selectedLevels = Array.from(levelCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
 
         const honorCards = honorsGrid.querySelectorAll('.card');
         let visibleCount = 0;
-        const visibleTypeCounts = {}, visibleLevelCounts = {};
+
+        const visibleTypeCounts = {};
+        const visibleLevelCounts = {};
 
         honorCards.forEach(card => {
-            const nameMatch = !keyword || card.dataset.name.toLowerCase().includes(keyword);
-            const userMatch = selectedUsers.length === 0 || selectedUsers.includes(card.dataset.user);
-            const majorMatch = selectedMajors.length === 0 || selectedMajors.includes(card.dataset.major);
-            const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(card.dataset.type);
-            const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(card.dataset.level);
+            const honorName = card.dataset.name.toLowerCase();
+            const cardType = card.dataset.type;
+            const cardLevel = card.dataset.level;
+            const cardTeacher = card.dataset.teacher;
+            const cardMajor = card.dataset.major;
 
-            if (nameMatch && userMatch && majorMatch && typeMatch && levelMatch) {
+            const nameMatch = !keyword || honorName.includes(keyword);
+            const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(cardType);
+            const levelMatch = selectedLevels.length === 0 || selectedLevels.includes(cardLevel);
+            const teacherMatch = selectedTeachers.length === 0 || selectedTeachers.includes(cardTeacher);
+            const majorMatch = selectedMajors.length === 0 || selectedMajors.includes(cardMajor);
+
+            if (nameMatch && typeMatch && levelMatch && teacherMatch && majorMatch) {
                 card.style.display = '';
                 visibleCount++;
-                const cardType = card.dataset.type;
-                const cardLevel = card.dataset.level;
                 if(cardType) visibleTypeCounts[cardType] = (visibleTypeCounts[cardType] || 0) + 1;
                 if(cardLevel) visibleLevelCounts[cardLevel] = (visibleLevelCounts[cardLevel] || 0) + 1;
             } else {
                 card.style.display = 'none';
             }
         });
-        
+
         updateDynamicStats(visibleTypeCounts, visibleLevelCounts, visibleCount);
         updateNoHonorsMessage(visibleCount);
-        updateFilterButtonLabel(userFilterBtnLabel, '教师', selectedUsers.length);
+        updateFilterButtonLabel(teacherFilterBtnLabel, '教师', selectedTeachers.length);
         updateFilterButtonLabel(majorFilterBtnLabel, '专业', selectedMajors.length);
         updateFilterButtonLabel(typeFilterBtnLabel, '类型', selectedTypes.length);
         updateFilterButtonLabel(levelFilterBtnLabel, '等级', selectedLevels.length);
-
-        localStorage.setItem('adminHonorFilterKeyword', keyword);
-        localStorage.setItem('adminHonorFilterUser', JSON.stringify(selectedUsers));
-        localStorage.setItem('adminHonorFilterMajor', JSON.stringify(selectedMajors));
-        localStorage.setItem('adminHonorFilterType', JSON.stringify(selectedTypes));
-        localStorage.setItem('adminHonorFilterLevel', JSON.stringify(selectedLevels));
     }
 
     function updateFilterButtonLabel(labelElement, prefix, count) {
@@ -453,39 +464,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateNoHonorsMessage(visibleCount) {
         if (!noHonorsMessage) return;
-        const isFiltering = (keywordSearchInput && keywordSearchInput.value) || Array.from(allCheckboxes).some(cb => cb.checked);
+        const isFiltering = (keywordSearchInput && keywordSearchInput.value) ||
+                            Array.from(teacherCheckboxes).some(cb => cb.checked) ||
+                            Array.from(majorCheckboxes).some(cb => cb.checked) ||
+                            Array.from(typeCheckboxes).some(cb => cb.checked) ||
+                            Array.from(levelCheckboxes).some(cb => cb.checked);
         noHonorsMessage.classList.toggle('hidden', !(visibleCount === 0 && isFiltering));
     }
 
     window.resetClientFilters = () => {
         if (keywordSearchInput) keywordSearchInput.value = "";
-        allCheckboxes.forEach(cb => cb.checked = false);
+        teacherCheckboxes.forEach(cb => cb.checked = false);
+        majorCheckboxes.forEach(cb => cb.checked = false);
+        typeCheckboxes.forEach(cb => cb.checked = false);
+        levelCheckboxes.forEach(cb => cb.checked = false);
         applyAllClientFilters();
     };
 
-    function applySavedFilters() {
-        if (keywordSearchInput) keywordSearchInput.value = localStorage.getItem('adminHonorFilterKeyword') || '';
-        
-        const setCheckboxes = (storageKey, checkboxes) => {
-            try {
-                const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
-                if (saved.length > 0) {
-                    checkboxes.forEach(cb => { if (saved.includes(cb.value)) cb.checked = true; });
-                }
-            } catch (e) { localStorage.removeItem(storageKey); }
-        };
-
-        setCheckboxes('adminHonorFilterUser', userCheckboxes);
-        setCheckboxes('adminHonorFilterMajor', majorCheckboxes);
-        setCheckboxes('adminHonorFilterType', typeCheckboxes);
-        setCheckboxes('adminHonorFilterLevel', levelCheckboxes);
-    }
-    
-    // --- 统计面板相关函数 ---
+    // (统计面板函数)
     function updateDynamicStats(typeCounts, levelCounts, totalCount) {
         if (statsTotalCountType) statsTotalCountType.textContent = totalCount;
         if (statsTotalCountLevel) statsTotalCountLevel.textContent = totalCount;
-
         document.querySelectorAll('#stats-by-type [data-stat-type]').forEach(card => {
             const typeName = card.dataset.statType;
             const countEl = card.querySelector('.stat-count');
@@ -496,7 +495,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 countEl.classList.toggle('text-base-content/30', count === 0);
             }
         });
-
         document.querySelectorAll('#stats-by-level [data-stat-level]').forEach(card => {
             const levelName = card.dataset.statLevel;
             const countEl = card.querySelector('.stat-count');
@@ -508,9 +506,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
     window.switchStatsView = (viewType) => {
-        localStorage.setItem('adminStatsView', viewType);
+        localStorage.setItem('statsView', viewType);
         if (!statsByTypeDiv || !statsByLevelDiv || !statsToggleTypeBtn || !statsToggleLevelBtn) return;
         const isTypeView = viewType === 'type';
         statsByTypeDiv.classList.toggle('hidden', !isTypeView);
@@ -518,16 +515,90 @@ document.addEventListener('DOMContentLoaded', () => {
         statsToggleTypeBtn.classList.toggle('btn-active', isTypeView);
         statsToggleLevelBtn.classList.toggle('btn-active', !isTypeView);
     };
-
     function applySavedStatsView() {
-        const savedView = localStorage.getItem('adminStatsView');
-        switchStatsView(savedView === 'level' ? 'level' : 'type');
+        const savedView = localStorage.getItem('statsView');
+        if (savedView === 'level') {
+            switchStatsView('level');
+        } else {
+            switchStatsView('type');
+        }
     }
 
-    // --- Modal 与 Toast 相关函数 ---
+    // (Toast 和 Preload)
+    const preloadedImages = new Set();
+    window.preloadImage = (url) => {
+        if (!preloadedImages.has(url)) {
+            const img = new Image();
+            img.src = url;
+            preloadedImages.add(url);
+        }
+    }
+    const showSuccessToast = (message) => {
+        if (!successToast || !successToastMessage) return;
+        successToastMessage.textContent = message;
+        successToast.classList.remove('hidden');
+        setTimeout(() => successToast.classList.add('hidden'), 3000);
+    };
+
+    // (PDF 处理)
+    async function handleFileSelect(event, fileInputElement, statusElement) {
+        statusElement.textContent = '';
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.type === 'application/pdf') {
+            statusElement.textContent = '正在处理PDF文件，请稍候...';
+            statusElement.className = 'label-text-alt text-xs mt-1 text-primary';
+            try {
+                const imageFile = await convertPdfToImage(file);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(imageFile);
+                fileInputElement.files = dataTransfer.files;
+                statusElement.textContent = '✅ PDF已成功转换为图片，可直接提交。';
+                statusElement.className = 'label-text-alt text-xs mt-1 text-success';
+            } catch (error) {
+                console.error('PDF conversion failed:', error);
+                statusElement.textContent = `❌ PDF处理失败: ${error.message}.`;
+                statusElement.className = 'label-text-alt text-xs mt-1 text-error';
+                fileInputElement.value = '';
+            }
+        }
+    }
+    function convertPdfToImage(pdfFile) {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                pdfjsLib.getDocument(typedarray).promise.then(pdf => pdf.getPage(1))
+                .then(page => {
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale: scale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    const renderContext = { canvasContext: context, viewport: viewport };
+                    return page.render(renderContext).promise.then(() => canvas);
+                }).then(canvas => {
+                    canvas.toBlob(blob => {
+                        const newFileName = pdfFile.name.replace(/\.pdf$/i, '.jpg');
+                        const imageFile = new File([blob], newFileName, { type: 'image/jpeg', lastModified: Date.now() });
+                        resolve(imageFile);
+                    }, 'image/jpeg', 0.9);
+                }).catch(error => reject(error));
+            };
+            fileReader.onerror = (error) => reject(error);
+            fileReader.readAsArrayBuffer(pdfFile);
+        });
+    }
+
+    // (Modal 函数)
     window.openEditModal = (button) => {
-        if (!editModal || !editForm) return;
+        if (!editModal || !editForm) return alert("编辑窗口加载失败！");
         editForm.reset();
+        if (editUploadStatus) {
+            editUploadStatus.textContent = '';
+            editUploadStatus.className = 'label-text-alt text-xs mt-1 min-h-[1rem]';
+        }
         if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
         if (editModalLoading) editModalLoading.classList.add('hidden');
         const data = button.dataset;
@@ -544,53 +615,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         editModal.showModal();
     };
-
-    window.closeEditModal = () => { if (editModal) editModal.close(); };
-
-    window.showImageModal = (imageUrl, imageTitle) => {
-        const imageModal = document.getElementById('image_modal');
-        if (!imageModal) { window.open(imageUrl, '_blank'); return; }
-        const modalImgEl = document.getElementById('modal_image');
-        const modalTitleEl = document.getElementById('modal_title');
-        if (modalImgEl) modalImgEl.src = imageUrl;
-        if (modalTitleEl) modalTitleEl.textContent = imageTitle || '图片详情';
-        imageModal.showModal();
-    };
-    
-    const showSuccessToast = (message) => {
-        if (!successToast || !successToastMessage) return;
-        successToastMessage.textContent = message;
-        successToast.classList.remove('hidden');
-        setTimeout(() => successToast.classList.add('hidden'), 3000);
+    window.closeEditModal = () => {
+        if (editModal) editModal.close();
     };
 
-    //==========================================================
-    // 3. 事件绑定与初始化调用
-    //==========================================================
-    if (keywordSearchInput) keywordSearchInput.addEventListener('input', applyAllClientFilters);
-    allCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
 
+    // --- 3. 事件绑定 ---
+
+    // (客户端筛选)
+    teacherCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    majorCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    typeCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+    levelCheckboxes.forEach(cb => cb.addEventListener('change', applyAllClientFilters));
+
+    if (keywordSearchInput) {
+        keywordSearchInput.addEventListener('input', applyAllClientFilters);
+    }
+
+    // (服务端筛选)
     if (resetFiltersBtn) {
         resetFiltersBtn.addEventListener('click', () => {
-            ['Keyword', 'User', 'Major', 'Type', 'Level'].forEach(key => localStorage.removeItem(`adminHonorFilter${key}`));
-            window.location.href = "{{ url_for('admin_all_honors', filter_date='all') }}";
+             // 重置服务端 (日期)
+             window.location.href = resetFiltersBtn.dataset.baseUrl;
+             // 重置客户端 (JS)
+             resetClientFilters();
         });
     }
 
-    if (applyCustomDateBtn) {
-        applyCustomDateBtn.addEventListener('click', () => {
-            const startDate = startDateInput.value;
-            const endDate = endDateInput.value;
-            if (!startDate || !endDate) { alert('请同时选择开始和结束日期。'); return; }
-            if (new Date(startDate) > new Date(endDate)) { alert('开始日期不能晚于结束日期。'); return; }
-            const url = new URL(window.location.href);
-            url.searchParams.set('filter_date', 'custom');
-            url.searchParams.set('start_date', startDate);
-            url.searchParams.set('end_date', endDate);
-            window.location.href = url.toString();
+    // (编辑 Modal 事件)
+    if (editHonorImageInput && editUploadStatus) {
+        editHonorImageInput.addEventListener('change', (event) => {
+            handleFileSelect(event, editHonorImageInput, editUploadStatus);
         });
     }
-
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -598,11 +655,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!honorId) return;
             if (editModalLoading) editModalLoading.classList.remove('hidden');
             if (editModalError) { editModalError.textContent = ''; editModalError.classList.add('hidden'); }
-            
+
             const formData = new FormData(editForm);
             try {
                 const response = await fetch(`/edit_honor/${honorId}`, {
-                    method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
                 });
                 const result = await response.json();
                 if (response.ok && result.success) {
@@ -611,9 +670,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
                     const errorMsg = result.error || `更新失败 (${response.status})。`;
-                    if(editModalError) { editModalError.textContent = errorMsg; editModalError.classList.remove('hidden'); }
+                    if(editModalError) {
+                        editModalError.textContent = errorMsg;
+                        editModalError.classList.remove('hidden');
+                    }
                 }
             } catch (error) {
+                console.error('Submit edit form error:', error);
                 if(editModalError) {
                     editModalError.textContent = '请求失败，请检查网络连接。';
                     editModalError.classList.remove('hidden');
@@ -624,9 +687,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 页面加载时初始化 ---
+    // --- 4. 页面加载时初始化 ---
     applySavedStatsView();
-    applySavedFilters();
     applyAllClientFilters();
 });
 </script>

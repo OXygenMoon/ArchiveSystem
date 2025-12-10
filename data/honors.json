@@ -300,6 +300,66 @@
             "honor_level": "县级",
             "thumb_filename": "lzy_1753434038_504_thumb.jpg",
             "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1762307584_922",
+            "name": "嘉兴市中等职业学校教师学科(专业素养测试) 计算机类二等奖",
+            "type": "教学比武",
+            "date": "2025-09-01",
+            "stamp": "嘉兴市教育局",
+            "stamp_other": "",
+            "image_filename": "lzy_1762307584_922.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "lzy_1762307584_922_thumb.jpg",
+            "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1762307666_756",
+            "name": "（执笔）嘉兴市“名师工程”第七轮中小学（幼儿园）名教师专 项研究课题",
+            "type": "课题",
+            "date": "2025-09-05",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1762307666_756.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "lzy_1762307666_756_thumb.jpg",
+            "original_pdf_filename": "lzy_1762307666_421_original.pdf"
+        },
+        {
+            "id": "honor_1762307736_405",
+            "name": "2024年度嘉兴市教育科学规划一般课题",
+            "type": "课题",
+            "date": "2025-08-28",
+            "stamp": "嘉兴市教育科学规划领导小组办公室",
+            "stamp_other": "",
+            "image_filename": "lzy_1762307736_405.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "lzy_1762307736_405_thumb.jpg",
+            "original_pdf_filename": "lzy_1762307736_185_original.pdf"
+        },
+        {
+            "id": "honor_1762310562_636",
+            "name": "2024学年嘉兴市中等职业教育“嘉禾职教·可见教研”专题 活动案例评选中荣获专业实训组典型案例",
+            "type": "案例",
+            "date": "2025-07-04",
+            "stamp": "嘉兴教育学院",
+            "stamp_other": "",
+            "image_filename": "lzy_1762310562_636.jpg",
+            "honor_level": "市级",
+            "thumb_filename": "lzy_1762310562_636_thumb.jpg",
+            "original_pdf_filename": null
+        },
+        {
+            "id": "honor_1762318606_334",
+            "name": "嘉善县第十一届“课博会”精品课程(群)暨嘉善县第十三届精品校本课程(群)",
+            "type": "荣誉",
+            "date": "2024-09-01",
+            "stamp": "嘉善县教育研究培训中心",
+            "stamp_other": "",
+            "image_filename": "lzy_1762318606_334.jpg",
+            "honor_level": "县级",
+            "thumb_filename": "lzy_1762318606_334_thumb.jpg",
+            "original_pdf_filename": null
         }
     ],
     "wqw": [

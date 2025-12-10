@@ -2,242 +2,502 @@
 <html data-theme="cupcake">
 <head>
     <meta charset="UTF-8"/>
-    <title>{% block title %}{% endblock %}</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css"
-      rel="stylesheet"
-      type="text/css"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} - 个人成就系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- 引入自定义 CSS -->
-    <link href="../static/main.css" rel="stylesheet"/>
-
     <style>
-        /* 基础样式或覆盖 */
-        body {
-            font-family: sans-serif;
+        /* (CSS 样式保持不变) */
+        .sidebar-content::-webkit-scrollbar { width: 6px; }
+        .sidebar-content::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+        .sidebar-content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+        .sidebar-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        .sidebar-transition { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+        @media (min-width: 1024px) {
+            .main-content { margin-left: 16rem; }
         }
-
-        .container {
-            max-width: 1280px;
-        }
-
-
-        .navbar {
-            padding: 1px;
-            min-height: 1px;
-        }
-
-        /* 限制内容最大宽度 */
-        /* 卡片图片样式 */
+        details[open] > summary { background-color: rgba(255, 255, 255, 0.05); border-radius: 0.375rem; }
+        details > summary:hover { background-color: rgba(255, 255, 255, 0.05); border-radius: 0.375rem; }
         .card figure img {
-            object-fit: cover; /* 图片覆盖区域 */
-            height: 16rem; /* 固定高度 */
+            object-fit: cover;
+            height: 16rem;
             width: 100%;
         }
-
-        /* Flash 消息动画 */
         @keyframes fadeOut {
-            from {
-                opacity: 1;
-            }
-            to {
-                opacity: 0;
-            }
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
-
-        .alert.animate-pulse {
+        .alert.animate-fade-out {
             animation: fadeOut 1s ease-in-out 5s forwards;
         }
 
-        .alert {
-            z-index: 999;
+        .modal-carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
         }
-        /* 5秒后淡出 */
+        #modal_image_container {
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: hsl(var(--b2, var(--b1)));
+            border-radius: 0.5rem;
+        }
     </style>
 
     {% block head_extra %}
     {% endblock %}
 
 </head>
+<body class="bg-base-200">
 
-<body>
-
-<div>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="toast toast-botton toast-end z-50">
-                {% for category, message in messages %}
-                    <div role="alert" class="alert shadow-lg animate-fade-out">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                             class="stroke-info h-6 w-6 shrink-0">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <div>
-                            <h3 class="font-bold">{{ message }}</h3>
-                            <div class="text-xs">{{ category }}</div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-</div>
-
-<!-- 左侧 logo 自适应导航 -->
-<header>
-    <div class="navbar bg-base-100 shadow-sm">
-        <!-- 左侧 -->
+    <div class="lg:hidden navbar bg-base-100 shadow-lg fixed top-0 w-full z-50">
         <div class="navbar-start">
-            <div class="dropdown">
-                <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
-                    <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                    >
-                        <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 6h16M4 12h8m-8 6h16"
-                        />
-                    </svg>
-                </div>
-            </div>
-            <a href="{{ url_for('home') }}" class="btn btn-ghost text-xl">个人成就系统</a>
+            <button id="mobile-menu-btn" class="btn btn-ghost btn-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
         </div>
-        <!-- 中间 -->
         <div class="navbar-center">
-
-            <div class="dropdown dropdown-hover">
-                <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    <a href="{{ url_for('home') }}">荣誉看板</a>
-                </div>
-            </div>
-
-            <div class="dropdown dropdown-hover">
-                <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    <a href="{{ url_for('add_honor') }}">添加荣誉</a>
-                </div>
-            </div>
-
-
-            <div class="dropdown dropdown-hover">
-                <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    <a href="{{ url_for('honor_table') }}">下载荣誉</a>
-                </div>
-            </div>
-
-            {% if session.role == 'admin' %}
-            <div class="dropdown dropdown-hover">
-                <div tabindex="0" role="button" class="btn btn-ghost w-30 m-1">
-                    管理模块
-                </div>
-                <ul
-                tabindex="0"
-                class="flex dropdown-content menu bg-base-100 rounded-box z-1 w-60 p-2 shadow-sm"
-                >
-                <div class="flex">
-                    <li><a href="{{ url_for('admin_all_honors') }}">荣誉看板(画廊视图)</a></li>
-                </div>
-                <div class="flex">
-                    <li><a href="{{ url_for('admin_all_honors_table') }}">下载荣誉(列表视图)</a></li>
-                </div>
+            <a href="{{ url_for('home') }}" class="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">成就系统</a>
+        </div>
+        <div class="navbar-end">
+             {% if session.logged_in %}
+            <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+                    <div class="w-10 rounded-full">
+                        <img alt="User Avatar" src="https://ui-avatars.com/api/?name={{ session.truename[0] if session.truename else 'U' }}&background=random&color=fff" />
+                    </div>
+                </label>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[51] p-2 shadow bg-base-100 rounded-box w-52">
+                    <li>
+                        <a href="{{ url_for('profile') }}" data-menu-item="profile">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                            个人信息
+                        </a>
+                    </li>
+                    {% if session.role == 'admin' %}
+                    <li>
+                        <a href="{{ url_for('admin_user_management') }}" data-menu-item="admin-user-management">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                            </svg>
+                            教师账户管理
+                        </a>
+                    </li>
+                    {% endif %}
+                    <div class="divider my-1"></div>
+                    <li><a href="{{ url_for('logout') }}" class="text-error">退出登录</a></li>
                 </ul>
             </div>
             {% endif %}
-
         </div>
-        <!-- 右侧 -->
-        <div class="navbar-end">
-            <div class="flex flex-none gap-2 items-center">
-                <div class="navbar-end">
-                    {% if session.logged_in %}
-                        <div class="dropdown dropdown-end">
-                            <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-                                <div class="w-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                                    {# Removed pointer-events: none here, user should be able to click avatar #}
-                                    <img src="https://ui-avatars.com/api/?name={{ session.truename[0] if session.truename else 'U' }}&background=random&color=fff"
-                                         alt="{{ session.truename }} avatar"/>
-                                </div>
-                            </label>
-                            <ul tabindex="0"
-                                class="menu menu-sm dropdown-content mt-3 z-[101] p-2 shadow bg-base-100 rounded-box w-52"
-                                style="z-index:1000;"> {# Increased z-index #}
-                                <li><a class="justify-between font-semibold">{{ session.truename }} <span
-                                        class="badge badge-sm">{{ session.role }}</span></a></li>
+    </div>
 
-                                {% if session.role == 'admin' %}
-                                <li><a href="{{ url_for('admin_dashboard') }}">后台管理</a></li>
-                                {% endif %}
+    <aside id="sidebar" class="fixed left-0 top-0 h-screen w-64 bg-base-100 shadow-xl z-40 sidebar-transition transform -translate-x-full lg:translate-x-0">
+        <div class="flex flex-col h-full">
+            <div class="p-4 border-b border-base-300">
+                <a href="{{ url_for('home') }}" class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">荣</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">个人成就系统</h1>
+                        <p class="text-xs text-base-content/60">Honor System</p>
+                    </div>
+                </a>
+            </div>
 
-
-                                <li><a href="{{ url_for('profile') }}">个人资料</a></li>
-                                <li><a>设置</a></li>
-                                <li><a href="{{ url_for('logout') }}">退出登录</a></li>
-                            </ul>
+            {% if session.logged_in %}
+            <a href="{{ url_for('profile') }}" class="block p-4 border-b border-base-300 hover:bg-base-200 transition-colors duration-200">
+                <div class="flex items-center gap-3">
+                    <div class="avatar">
+                        <div class="w-12 rounded-full ring-2 ring-primary ring-offset-base-100 ring-offset-2">
+                            <img alt="User Avatar" src="https://ui-avatars.com/api/?name={{ session.truename[0] if session.truename else 'U' }}&background=random&color=fff" />
                         </div>
-                    {% else %}
-                        <a href="{{ url_for('login') }}" class="btn btn-outline btn-primary mr-2">登录</a>
-                        <a href="{{ url_for('register') }}" class="btn btn-accent">注册</a>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold">{{ session.truename }}</p>
+                        <p class="text-xs text-base-content/60">
+                           角色: <span class="font-medium">{{ session.role }}</span>
+                        </p>
+                    </div>
+                </div>
+            </a>
+            {% endif %}
+
+            <nav class="flex-1 overflow-y-auto sidebar-content p-4">
+                <ul class="menu menu-compact">
+                    {% if session.logged_in %}
+                    <li class="menu-title"><span>主要功能</span></li>
+                    <li>
+                        <a href="{{ url_for('home') }}" data-menu-item="home">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                            我的看板
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('add_honor') }}" data-menu-item="add_honor">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" /></svg>
+                            添加荣誉
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('honor_table') }}" data-menu-item="honor_table">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                            我的下载 (列表)
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('teachers_overview') }}" data-menu-item="teachers_overview">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                           </svg>
+                            教师总览
+                        </a>
+                    </li>
+
+                    {% if session.role == 'admin' %}
+                    <li class="menu-title mt-4"><span>系统管理</span></li>
+                    <li>
+                        <details data-menu-key="admin-menu">
+                            <summary>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                管理模块
+                            </summary>
+                            <ul>
+                                <li>
+                                    <a href="{{ url_for('admin_all_honors') }}" data-menu-item="admin-all-honors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                        </svg>
+                                        全校看板 (画廊)
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url_for('admin_all_honors_table') }}" data-menu-item="admin-all-honors-table">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                        全校荣誉 (列表)
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url_for('admin_user_management') }}" data-menu-item="admin-user-management">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                        </svg>
+                                        教师账户管理
+                                    </a>
+                                </li>
+                            </ul>
+                        </details>
+                    </li>
                     {% endif %}
+
+                    <li class="menu-title mt-4"><span>个人中心</span></li>
+                    <li>
+                        <a href="{{ url_for('profile') }}" data-menu-item="profile">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                            个人资料
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('logout') }}" class="text-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" /></svg>
+                            退出登录
+                        </a>
+                    </li>
+                    {% else %}
+                    <li><a href="{{ url_for('index') }}" class="btn btn-primary btn-sm">登录系统</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+            <div class="p-4 border-t border-base-300 space-y-2">
+                <div class="text-xs text-base-content/70 text-center bg-base-200 p-2 rounded-lg">
+                   <p>&copy; {{ now.strftime('%Y') }} 个人成就系统.</p>
+                   <p>All Rights Reserved.</p>
                 </div>
             </div>
         </div>
-    </div>
-</header>
+    </aside>
 
-<!-- body -->
-<main>
-    <body>
-    <div class="main-content p-4">
-        <!-- 主体内容 -->
-        {% block content %}
-        {% endblock %}
-    </div>
-    </body>
-</main>
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
-<footer
-        class="footer footer-center p-4 bg-base-300 text-base-content fixed bottom-0 w-full"
->
-    <div>
-        <p>Copyright © {{ year }} - All right reserved by Lao Zhenyu</p>
-    </div>
-</footer>
+    <main class="min-h-screen main-content pt-20 lg:pt-0 transition-all duration-300">
+        <div class="p-4 sm:p-6 lg:p-8">
 
-{# --- 图片放大 Modal --- #}
-<dialog id="image_modal" class="modal">
-    <div class="modal-box w-11/12 max-w-5xl p-4">
-        <h3 id="modal_title" class="font-bold text-lg mb-4">图片详情</h3>
-        <figure>
-            <img id="modal_image" src="" alt="放大图片" class="max-w-full max-h-[75vh] mx-auto"/>
-        </figure>
-        <div class="modal-action">
-            <form method="dialog">
-                <button class="btn">关闭</button>
-            </form>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="toast toast-top toast-end z-50" style="top: 80px;">
+                        {% for category, message in messages %}
+                            <div role="alert" class="alert shadow-lg animate-fade-out alert-{{ category | replace('error', 'error') | replace('success', 'success') | replace('warning', 'warning') | default('info') }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info h-6 w-6 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div>
+                                    <h3 class="font-bold">{{ message }}</h3>
+                                    <div class="text-xs">{{ category }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    {% block content %}
+                    {% endblock %}
+                </div>
+            </div>
+
         </div>
-    </div>
-    {# 点击背景关闭 #}
-    <form method="dialog" class="modal-backdrop">
-        <button>关闭</button>
-    </form>
-</dialog>
+    </main>
 
+    <dialog id="image_modal" class="modal">
+        <div class="modal-box w-11/12 max-w-5xl p-4">
+            <h3 id="modal_title" class="font-bold text-lg mb-4 truncate">图片详情</h3>
+
+            <div id="modal_image_container">
+                <button id="modal_prev" class="btn btn-circle btn-ghost modal-carousel-btn left-2 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                </button>
+
+                <span id="modal_spinner" class="loading loading-spinner loading-lg absolute"></span>
+
+                <figure class="w-full h-full">
+                    <img id="modal_image" src="" alt="放大图片" class="max-w-full max-h-[75vh] mx-auto hidden" />
+                </figure>
+
+                <button id="modal_next" class="btn btn-circle btn-ghost modal-carousel-btn right-2 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </button>
+            </div>
+
+            <div class="modal-action flex justify-between items-center">
+                <span id="modal_page_count" class="text-sm text-base-content/70 hidden">
+                    第 1 / 1 页
+                </span>
+
+                <form method="dialog">
+                    <button class="btn">关闭</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>关闭</button>
+        </form>
+    </dialog>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script>
+
+    // --- 全局图片放大函数 (支持翻页) ---
+    let modalOwnerUsername = '';
+    let modalPageImages = [];
+    let modalCurrentPageIndex = 0;
+
+    const g_imageModal = document.getElementById('image_modal');
+    const g_modalImgEl = document.getElementById('modal_image');
+    const g_modalTitleEl = document.getElementById('modal_title');
+    const g_modalSpinner = document.getElementById('modal_spinner');
+    const g_modalPrevBtn = document.getElementById('modal_prev');
+    const g_modalNextBtn = document.getElementById('modal_next');
+    const g_modalPageCount = document.getElementById('modal_page_count');
+
+    /**
+     * 【修复】更新 Modal 中的图片 (防闪烁)
+     */
+    function showModalPage(index) {
+        if (!g_modalImgEl || !modalPageImages || modalPageImages.length === 0) return;
+
+        // 1. 【修改】显示 Spinner, 但 *不隐藏* 图片
+        g_modalSpinner.classList.remove('hidden');
+        // g_modalImgEl.classList.add('hidden'); // <-- 移除
+        // g_modalImgEl.src = ''; // <-- 移除
+
+        modalCurrentPageIndex = index;
+        const totalPages = modalPageImages.length;
+        const filename = modalPageImages[index];
+
+        const imageUrl = `{{ url_for('uploaded_file_user', username='__USER__', filename='__FILE__') }}`
+                           .replace('__USER__', modalOwnerUsername)
+                           .replace('__FILE__', filename);
+
+        // 2. 预加载新图片
+        const img = new Image();
+        img.onload = () => {
+            // 3. 【修改】加载成功: 只需设置 src 并隐藏 spinner
+            g_modalImgEl.src = imageUrl;
+            g_modalSpinner.classList.add('hidden');
+            // g_modalImgEl.classList.remove('hidden'); // <-- 移除
+        };
+        img.onerror = () => {
+            g_modalImgEl.alt = "图片加载失败";
+            g_modalSpinner.classList.add('hidden');
+        };
+        img.src = imageUrl;
+
+        // 4. 更新页码和按钮 (不变)
+        g_modalPageCount.textContent = `第 ${index + 1} / ${totalPages} 页`;
+        g_modalPrevBtn.classList.toggle('hidden', index === 0);
+        g_modalNextBtn.classList.toggle('hidden', index === totalPages - 1);
+    }
+
+    /**
+     * 全局函数: 打开图片弹窗
+     */
+    window.showImageModal = (arg1, arg2, arg3) => {
+        if (!g_imageModal) {
+             if (typeof arg3 === 'undefined') { window.open(arg1, '_blank'); }
+             return;
+        }
+
+        g_modalPrevBtn.classList.add('hidden');
+        g_modalNextBtn.classList.add('hidden');
+        g_modalPageCount.classList.add('hidden');
+        g_modalSpinner.classList.add('hidden');
+        g_modalImgEl.classList.remove('hidden');
+
+        if (g_modalTitleEl) g_modalTitleEl.textContent = arg2 || '图片详情';
+
+        if (typeof arg3 === 'undefined' || arg3 === null) { // 【修复】增加对 null 的检查
+            // --- 模式 2: (旧) 预览 dataURL 或 修复后的 null/单页 ---
+            const dataURL = arg1;
+            modalPageImages = [];
+            if (g_modalImgEl) g_modalImgEl.src = dataURL;
+
+        } else {
+            // --- 模式 1: (新) 翻页模式 ---
+            const ownerUsername = arg1;
+            const pageImagesList = arg3;
+
+            modalOwnerUsername = ownerUsername;
+            modalPageImages = pageImagesList || [];
+
+            if (modalPageImages.length > 1) {
+                g_modalPageCount.classList.remove('hidden');
+            }
+
+            showModalPage(0); // 启动时加载第 0 页
+        }
+
+        if (typeof g_imageModal.showModal === 'function') {
+            g_imageModal.showModal();
+        } else {
+            g_imageModal.setAttribute('open', 'true');
+        }
+    };
+
+    // 为翻页按钮绑定一次性事件
+    if (g_modalPrevBtn) {
+        g_modalPrevBtn.onclick = () => {
+            if (modalCurrentPageIndex > 0) {
+                showModalPage(modalCurrentPageIndex - 1);
+            }
+        };
+    }
+    if (g_modalNextBtn) {
+        g_modalNextBtn.onclick = () => {
+            if (modalCurrentPageIndex < modalPageImages.length - 1) {
+                showModalPage(modalCurrentPageIndex + 1);
+            }
+        };
+    }
+
+    // --- 侧边栏和菜单 JS ---
+    document.addEventListener('DOMContentLoaded', function() {
+        // 侧栏显示/隐藏功能
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        function toggleSidebar() {
+            if (!sidebar || !overlay) return;
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+        mobileMenuBtn?.addEventListener('click', toggleSidebar);
+        overlay?.addEventListener('click', toggleSidebar);
+
+        // 侧栏菜单状态管理
+        const MENU_STATE_KEY = 'sidebar_menu_state';
+        const ACTIVE_MENU_KEY = 'active_menu_item';
+        const menuDetails = document.querySelectorAll('details[data-menu-key]');
+        function saveMenuState() {
+            const state = {};
+            menuDetails.forEach(detail => {
+                const key = detail.getAttribute('data-menu-key');
+                state[key] = detail.hasAttribute('open');
+            });
+            localStorage.setItem(MENU_STATE_KEY, JSON.stringify(state));
+        }
+        function autoExpandCurrentMenu() {
+            const currentPath = window.location.pathname;
+            const menuLinks = document.querySelectorAll('a[href]');
+            const savedState = localStorage.getItem(MENU_STATE_KEY);
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    menuDetails.forEach(detail => {
+                        const key = detail.getAttribute('data-menu-key');
+                        if (state[key]) detail.setAttribute('open', '');
+                    });
+                } catch (e) { console.error('Error restoring menu state:', e); }
+            }
+            document.querySelectorAll('[data-menu-item]').forEach(l => l.classList.remove('active'));
+            let foundActive = false;
+            menuLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && href.length > 1 && currentPath.startsWith(href)) {
+                    const menuItem = link.closest('ul')?.previousElementSibling || link;
+                    if (menuItem.hasAttribute('data-menu-item') || menuItem.tagName === 'A') {
+                       const target = menuItem.hasAttribute('data-menu-item') ? menuItem : link;
+                       if (href === '{{ url_for('home') }}') {
+                           if (currentPath === href) {
+                               target.classList.add('active');
+                               localStorage.setItem(ACTIVE_MENU_KEY, target.getAttribute('data-menu-item'));
+                               foundActive = true;
+                           }
+                       } else {
+                           target.classList.add('active');
+                           localStorage.setItem(ACTIVE_MENU_KEY, target.getAttribute('data-menu-item'));
+                           foundActive = true;
+                       }
+                    }
+                    const parentDetails = link.closest('details');
+                    if (parentDetails && !parentDetails.hasAttribute('open')) {
+                        parentDetails.setAttribute('open', '');
+                    }
+                }
+            });
+            if (!foundActive) {
+                const activeKey = localStorage.getItem(ACTIVE_MENU_KEY);
+                if (activeKey) {
+                    const activeLink = document.querySelector(`[data-menu-item="${activeKey}"]`);
+                    if (activeLink) activeLink.classList.add('active');
+                }
+            }
+        }
+        menuDetails.forEach(detail => detail.addEventListener('toggle', saveMenuState));
+        document.querySelectorAll('a[data-menu-item]').forEach(link => {
+            link.addEventListener('click', function() {
+                localStorage.setItem(ACTIVE_MENU_KEY, this.getAttribute('data-menu-item'));
+            });
+        });
+        autoExpandCurrentMenu();
+    });
+    </script>
+
+    {% block scripts %}
+    {% endblock %}
 
 </body>
-
-{% block scripts %}
-{% endblock %}
-
 </html>

@@ -120,7 +120,7 @@
                     </div>
                     <div class="form-control">
                          <label class="label py-0"><span class="label-text-alt">结束日期</span></label>
-                        <input type="date" id="end-date-input" class="input input-bordered input-sm" value="{{ request.args.get('end_date', '') }}" max="{{ now().strftime('%Y-%m-%d') }}">
+                        <input type="date" id="end-date-input" class="input input-bordered input-sm" value="{{ request.args.get('end_date', '') }}" max="{{ now.strftime('%Y-%m-%d') }}">
                     </div>
                 </div>
                 <button id="apply-custom-date-btn" class="btn btn-secondary btn-sm w-full">应用自选范围</button>
@@ -231,14 +231,14 @@
               <tr data-id="{{ honor.id }}"
                   data-name="{{ honor.name|e }}"
                   data-user="{{ honor.username|e }}"
-                  data-major="{{ honor.major|e }}"
+                  data-major="{{ honor.owner.major | escape }}"
                   data-type="{{ honor.type|e }}"
                   data-level="{{ honor.display_level|e }}">
                 <td class="font-medium">{{ honor.name }}</td>
-                <td><div class="font-bold">{{ honor.truename }}</div></td>
-                <td>{{ honor.major }}</td>
+                <td><div class="font-bold">{{ honor.owner.truename }}</div></td>
+                <td>{{ honor.owner.major }}</td>
                 <td>{{ honor.type }}</td>
-                <td><span class="badge badge-ghost badge-md">{{ honor.display_level }}</span></td>
+                <td><span class="badge badge-ghost badge-md">{{ honor.honor_level }}</span></td>
                 <td>{{ honor.date }}</td>
                 <td title="{{ honor.stamp }}{% if honor.stamp_other %} / {{ honor.stamp_other }}{% endif %}">{{ honor.stamp|truncate(35) }}</td>
                 <td class="text-center">
